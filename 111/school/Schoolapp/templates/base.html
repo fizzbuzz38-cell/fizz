@@ -1059,7 +1059,8 @@
     </button>
     <div id="mobileBackdrop" class="mobile-backdrop" aria-hidden="true"></div>
     <!-- Modern Fixed Bottom Navigation with Beautiful Colored Icons -->
-    <nav id="mobileBottomNav" class="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-2xl" role="navigation" aria-label="Navigation mobile">
+    {% url 'charges' as charges_url %}
+    <nav id="mobileBottomNav" class="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-white to-gray-50 border-t border-gray-300 shadow-2xl" role="navigation" aria-label="Navigation mobile">
       <div class="flex items-center justify-around h-20 px-2">
         <a href="{{ dashboard_url }}" class="mobile-nav-item flex flex-col items-center justify-center flex-1 h-full transition-all duration-300 {% if request.path == dashboard_url %}active{% endif %}" data-page="dashboard">
           <div class="mobile-nav-icon-wrapper mb-1">
@@ -1079,11 +1080,11 @@
           </div>
           <span class="mobile-nav-label text-xs font-semibold">Inscriptions</span>
         </a>
-        <a href="{{ finances_url }}" class="mobile-nav-item flex flex-col items-center justify-center flex-1 h-full transition-all duration-300 {% if request.path == finances_url or request.path == paiements_url %}active{% endif %}" data-page="finances">
+        <a href="{{ charges_url }}" class="mobile-nav-item flex flex-col items-center justify-center flex-1 h-full transition-all duration-300 {% if request.path == charges_url %}active{% endif %}" data-page="charges" title="Accès rapide aux charges">
           <div class="mobile-nav-icon-wrapper mb-1">
-            <span class="material-icons mobile-nav-icon text-2xl">payments</span>
+            <span class="material-icons mobile-nav-icon text-2xl">receipt_long</span>
           </div>
-          <span class="mobile-nav-label text-xs font-semibold">Finances</span>
+          <span class="mobile-nav-label text-xs font-semibold">Charges</span>
         </a>
         <button id="mobileMenuBtn" class="mobile-nav-item flex flex-col items-center justify-center flex-1 h-full transition-all duration-300" data-page="menu">
           <div class="mobile-nav-icon-wrapper mb-1">
@@ -1095,12 +1096,18 @@
     </nav>
     <style>
       /* Beautiful Mobile Navigation Styles */
+      #mobileBottomNav {
+        display: flex !important;
+        visibility: visible !important;
+      }
       .mobile-nav-item {
         position: relative;
         color: #6b7280;
         text-decoration: none;
         border-radius: 16px 16px 0 0;
         overflow: visible;
+        cursor: pointer;
+        user-select: none;
       }
       
       .mobile-nav-item::before {
@@ -1122,14 +1129,15 @@
       
       .mobile-nav-icon-wrapper {
         position: relative;
-        width: 48px;
-        height: 48px;
+        width: 52px;
+        height: 52px;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 16px;
-        background: linear-gradient(135deg, rgba(6,182,212,0.08), rgba(22,163,74,0.08));
+        border-radius: 14px;
+        background: linear-gradient(135deg, rgba(6,182,212,0.1), rgba(22,163,74,0.1));
         transition: all 0.3s cubic-bezier(.2,.9,.25,1);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
       }
       
       .mobile-nav-item[data-page="dashboard"] .mobile-nav-icon-wrapper {
@@ -1158,8 +1166,8 @@
       }
       
       .mobile-nav-item.active .mobile-nav-icon-wrapper {
-        transform: translateY(-4px) scale(1.1);
-        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        transform: translateY(-6px) scale(1.15);
+        box-shadow: 0 12px 32px rgba(0,0,0,0.18);
       }
       
       .mobile-nav-item[data-page="dashboard"].active .mobile-nav-icon-wrapper {
