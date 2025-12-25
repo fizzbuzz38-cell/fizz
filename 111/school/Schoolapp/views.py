@@ -6171,7 +6171,7 @@ def api_charges_list(request):
         for c in charges:
             attachment_url = None
             if getattr(c, 'attachment', None):
-                attachment_url = c.attachment.url
+                attachment_url = request.build_absolute_uri(c.attachment.url)
             
             charges_data.append({
                 'id': c.id,
@@ -6232,7 +6232,7 @@ def api_charges_all(request):
         for c in charges:
             attachment_url = None
             if getattr(c, 'attachment', None):
-                attachment_url = c.attachment.url
+                attachment_url = request.build_absolute_uri(c.attachment.url)
                 
             charges_data.append({
                 'id': c.id,
@@ -8598,7 +8598,7 @@ def api_charge_detail(request, pk):
         c = get_object_or_404(Charge, pk=pk)
         attachment_url = None
         if getattr(c, 'attachment', None):
-            attachment_url = c.attachment.url
+            attachment_url = request.build_absolute_uri(c.attachment.url)
         return JsonResponse({
             'success': True,
             'charge': {
@@ -8674,7 +8674,7 @@ def api_charge_update(request, pk):
         attachment_url = None
         if getattr(charge, 'attachment', None):
             # Return relative URL so frontend can prepend SERVER_URL
-            attachment_url = charge.attachment.url
+            attachment_url = request.build_absolute_uri(charge.attachment.url)
             
         charge_data = {
             'id': charge.id,
