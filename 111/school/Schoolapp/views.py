@@ -8342,7 +8342,7 @@ def student_formations_available(request):
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.core.paginator import Paginator
-from django.db.models import Sum, Q
+from django.db.models import Sum, Q, Count
 from django.utils import timezone
 import json
 from datetime import datetime
@@ -8550,7 +8550,34 @@ def api_charges_list(request):
                 'attachment': attachment_url
             })
             
-        return JsonResponse({'success': True, 'charges': charges, 'total': total_count})
+        # Calculate totals for display
+        total_all = Charge.objects.aggregate(total=Sum('montant'))['total'] or 0
+        month_start = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        month_total = Charge.objects.filter(date_paiement__gte=month_start.date()).aggregate(total=Sum('montant'))['total'] or 0
+        
+        # Calculate type distribution for categories
+        type_distribution = list(
+            Charge.objects.values('type_charge')
+            .annotate(total=Sum('montant'), count=Count('id'))
+            .order_by('-total')
+        )
+        # Convert Decimal to float for JSON serialization
+        for item in type_distribution:
+            item['total'] = float(item['total'] or 0)
+        
+        return JsonResponse({
+            'success': True, 
+            'charges': charges, 
+            'total': total_count,
+            'total_all': float(total_all),
+            'month_total': float(month_total),
+            'stats': {
+                'total_all': float(total_all),
+                'month_total': float(month_total),
+                'count': total_count,
+                'type_distribution': type_distribution
+            }
+        })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
