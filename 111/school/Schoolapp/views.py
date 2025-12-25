@@ -8550,7 +8550,31 @@ def api_charges_list(request):
                 'attachment': attachment_url
             })
             
-        return JsonResponse({'success': True, 'charges': charges, 'total': total_count})
+        # Compute stats for the dashboard
+        now = timezone.now()
+        total_all = Charge.objects.aggregate(total=Sum('montant'))['total'] or 0
+        month_total = Charge.objects.filter(
+            date_paiement__year=now.year,
+            date_paiement__month=now.month
+        ).aggregate(total=Sum('montant'))['total'] or 0
+        
+        # Type distribution for chart/categories
+        type_stats = Charge.objects.values('type_charge').annotate(
+            total=Sum('montant'),
+            count=Count('id')
+        ).order_by('-total')[:15]
+            
+        return JsonResponse({
+            'success': True, 
+            'charges': charges, 
+            'total': total_count,
+            'stats': {
+                'total_all': float(total_all),
+                'month_total': float(month_total),
+                'count': total_count,
+                'type_distribution': list(type_stats)
+            }
+        })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
