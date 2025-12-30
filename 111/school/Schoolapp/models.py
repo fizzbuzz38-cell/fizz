@@ -596,6 +596,10 @@ class Charge(models.Model):
 	formation = models.ForeignKey('Formation', null=True, blank=True, on_delete=models.SET_NULL, db_column='formation_id', related_name='charges')
 	# contact phone or identifier (added to DB via ALTER TABLE as requested)
 	contact = models.CharField(max_length=20, null=True, blank=True)
+	# fournisseur (supplier name)
+	fournisseur = models.CharField(max_length=255, null=True, blank=True)
+	# nom contact (contact name) - stored in document/remarque as JSON
+	nom_contact = models.CharField(max_length=255, null=True, blank=True)
 	# attachment for documents or photos
 	attachment = models.FileField(upload_to='charges_attachments/', null=True, blank=True)
 

@@ -6242,6 +6242,9 @@ def api_charges_all(request):
                 'mode_paiement': c.mode_paiement or '',
                 'reference': c.reference or '',
                 'remarque': c.remarque or '',
+                'contact': c.contact or '',
+                'fournisseur': c.fournisseur or '',
+                'nom_contact': c.nom_contact or '',
                 'attachment': attachment_url,
             })
             
@@ -6279,6 +6282,8 @@ def api_charge_detail(request, pk):
             'formation_id': c.formation_id,
             'formation_nom': c.formation.nom if c.formation else None,
             'contact': c.contact or '',
+            'fournisseur': c.fournisseur or '',
+            'nom_contact': c.nom_contact or '',
             'attachment': attachment_url,
         }
         return JsonResponse({'success': True, 'charge': charge_data})
@@ -6346,6 +6351,8 @@ def api_charge_create(request):
             reference=data.get('reference', '') or None,
             remarque=data.get('remarque', '') or None,
             contact=data.get('contact', '') or None,
+            fournisseur=data.get('fournisseur', '') or None,
+            nom_contact=data.get('nom_contact', '') or None,
             formation_id=data.get('formation_id') if data.get('formation_id') else None,
         )
 
@@ -6367,6 +6374,8 @@ def api_charge_create(request):
             'reference': charge.reference or '',
             'remarque': charge.remarque or '',
             'contact': charge.contact or '',
+            'fournisseur': charge.fournisseur or '',
+            'nom_contact': charge.nom_contact or '',
             'formation_id': charge.formation_id,
             'formation_nom': charge.formation.nom if charge.formation else None,
             'attachment': attachment_url,
@@ -6425,6 +6434,12 @@ def api_charge_update(request, pk):
         if 'contact' in data:
             charge.contact = data['contact'] or None
         
+        if 'fournisseur' in data:
+            charge.fournisseur = data['fournisseur'] or None
+        
+        if 'nom_contact' in data:
+            charge.nom_contact = data['nom_contact'] or None
+        
         if 'formation_id' in data:
             charge.formation_id = data['formation_id'] if data['formation_id'] else None
         
@@ -6449,6 +6464,8 @@ def api_charge_update(request, pk):
             'formation_id': charge.formation_id,
             'formation_nom': charge.formation.nom if charge.formation else None,
             'contact': charge.contact or '',
+            'fournisseur': charge.fournisseur or '',
+            'nom_contact': charge.nom_contact or '',
             'attachment': attachment_url,
         }
         
@@ -8547,6 +8564,9 @@ def api_charges_list(request):
                 'date_paiement': c.date_paiement.isoformat() if c.date_paiement else None,
                 'reference': c.reference,
                 'remarque': c.remarque,
+                'contact': c.contact or '',
+                'fournisseur': c.fournisseur or '',
+                'nom_contact': c.nom_contact or '',
                 'attachment': attachment_url
             })
             
@@ -8601,7 +8621,9 @@ def api_charge_create(request):
             date_paiement=data.get('date_paiement') or timezone.now().date(),
             reference=data.get('reference'),
             remarque=data.get('remarque'),
-            contact=data.get('contact')
+            contact=data.get('contact'),
+            fournisseur=data.get('fournisseur') or None,
+            nom_contact=data.get('nom_contact') or None
         )
         
         # Handle file upload
