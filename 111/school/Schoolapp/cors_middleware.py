@@ -10,8 +10,6 @@ class CORSMiddleware:
     
     def __init__(self, get_response):
         self.get_response = get_response
-        # Allow all origins for mobile app compatibility
-        self.allow_all_origins = True
     
     def __call__(self, request):
         # Handle preflight OPTIONS requests
@@ -22,12 +20,10 @@ class CORSMiddleware:
         # Process the request normally
         response = self.get_response(request)
         
-        # Add CORS headers to ALL responses (allow all origins)
-        origin = request.META.get('HTTP_ORIGIN', '*')
-        response['Access-Control-Allow-Origin'] = origin if origin else '*'
-        response['Access-Control-Allow-Credentials'] = 'true'
-        response['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-        response['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept'
+        # Add CORS headers
+        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS, PATCH'
+        response['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept, Origin'
         
         return response
     
@@ -36,12 +32,10 @@ class CORSMiddleware:
         from django.http import HttpResponse
         
         response = HttpResponse()
-        origin = request.META.get('HTTP_ORIGIN', '*')
         
-        response['Access-Control-Allow-Origin'] = origin if origin else '*'
-        response['Access-Control-Allow-Credentials'] = 'true'
-        response['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-        response['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept'
+        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS, PATCH'
+        response['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept, Origin'
         response['Access-Control-Max-Age'] = '86400'  # 24 hours
         
         response.status_code = 200
