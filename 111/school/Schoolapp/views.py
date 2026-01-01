@@ -6220,8 +6220,18 @@ def api_charges_list(request):
 def api_charges_all(request):
     """API endpoint: GET all charges with pagination for a dedicated list view."""
     try:
-        limit = int(request.GET.get('limit', 20))
+        try:
+            limit = int(request.GET.get('limit', 20))
+        except Exception:
+            limit = 20
+
+        if limit <= 0:
+            limit = 20
+        if limit > 5000:
+            limit = 5000
         page = int(request.GET.get('page', 1))
+        if page <= 0:
+            page = 1
         offset = (page - 1) * limit
         
         qs = Charge.objects.all().order_by('-date_paiement', '-id')
@@ -6247,13 +6257,24 @@ def api_charges_all(request):
                 'nom_contact': c.nom_contact or '',
                 'attachment': attachment_url,
             })
+
+        now = timezone.now()
+        total_all = Charge.objects.aggregate(total=Sum('montant'))['total'] or 0
+        month_total = Charge.objects.filter(
+            date_paiement__year=now.year,
+            date_paiement__month=now.month
+        ).aggregate(total=Sum('montant'))['total'] or 0
             
         return JsonResponse({
             'success': True,
             'charges': charges_data,
             'total': total_count,
             'page': page,
-            'pages': (total_count + limit - 1) // limit
+            'pages': (total_count + limit - 1) // limit,
+            'stats': {
+                'total_all': float(total_all),
+                'month_total': float(month_total),
+            }
         })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
