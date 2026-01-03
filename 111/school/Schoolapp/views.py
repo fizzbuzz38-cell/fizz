@@ -6544,16 +6544,39 @@ def api_charge_delete(request, pk):
 
 @csrf_exempt
 def api_charges_stats(request):
-    """API endpoint: GET charges statistics for dashboard.
+    """API endpoint: GET charges statistics for dashboard (Enhanced Edition).
     
-    Returns JSON: { success: True, stats: {...} }
+    Returns comprehensive statistics including:
+    - Summary totals (all-time, month, year, week, today)
+    - Type/category distribution with breakdown
+    - Monthly and weekly trends
+    - Daily averages and patterns
+    - Top fournisseurs
+    - Year-over-year comparison
     """
     try:
-        now = timezone.now()
+        from django.db.models.functions import TruncMonth, TruncWeek, TruncDate, ExtractWeekDay
+        from django.db.models import Max, Min, Avg
+        from collections import defaultdict
+        import calendar
         
-        # Total charges
+        now = timezone.now()
+        today = now.date()
+        
+        # ============ SUMMARY TOTALS ============
         total_all = Charge.objects.aggregate(total=Sum('montant'))['total'] or 0
         total_count = Charge.objects.count()
+        
+        # Today
+        today_charges = Charge.objects.filter(date_paiement=today)
+        today_total = today_charges.aggregate(total=Sum('montant'))['total'] or 0
+        today_count = today_charges.count()
+        
+        # This week (Monday to Sunday)
+        week_start = today - timezone.timedelta(days=today.weekday())
+        week_charges = Charge.objects.filter(date_paiement__gte=week_start, date_paiement__lte=today)
+        week_total = week_charges.aggregate(total=Sum('montant'))['total'] or 0
+        week_count = week_charges.count()
         
         # This month
         month_charges = Charge.objects.filter(
@@ -6563,46 +6586,235 @@ def api_charges_stats(request):
         month_total = month_charges.aggregate(total=Sum('montant'))['total'] or 0
         month_count = month_charges.count()
         
+        # Last month (for comparison)
+        last_month = now.month - 1 if now.month > 1 else 12
+        last_month_year = now.year if now.month > 1 else now.year - 1
+        last_month_charges = Charge.objects.filter(
+            date_paiement__year=last_month_year,
+            date_paiement__month=last_month
+        )
+        last_month_total = last_month_charges.aggregate(total=Sum('montant'))['total'] or 0
+        
         # This year
         year_charges = Charge.objects.filter(date_paiement__year=now.year)
         year_total = year_charges.aggregate(total=Sum('montant'))['total'] or 0
         year_count = year_charges.count()
         
-        # Type distribution
-        type_distribution = list(
+        # Last year (for comparison)
+        last_year_charges = Charge.objects.filter(date_paiement__year=now.year - 1)
+        last_year_total = last_year_charges.aggregate(total=Sum('montant'))['total'] or 0
+        
+        # ============ TYPE DISTRIBUTION (Enhanced) ============
+        # Get raw type distribution
+        type_distribution_raw = list(
             Charge.objects.values('type_charge')
             .annotate(total=Sum('montant'), count=Count('id'))
-            .order_by('-total')[:10]
+            .order_by('-total')
         )
         
-        # Monthly trend (last 6 months)
-        from django.db.models.functions import TruncMonth
+        # Group by main category for pie chart
+        main_categories = {
+            'Travaux': {'total': 0, 'count': 0, 'subcategories': [], 'color': '#7c3aed', 'icon': 'fa-tools'},
+            'Aménagement': {'total': 0, 'count': 0, 'subcategories': [], 'color': '#06b6d4', 'icon': 'fa-couch'},
+            'Véhicule': {'total': 0, 'count': 0, 'subcategories': [], 'color': '#f59e0b', 'icon': 'fa-car'},
+            'Fiscales': {'total': 0, 'count': 0, 'subcategories': [], 'color': '#ef4444', 'icon': 'fa-file-invoice'},
+            'Fonctionnement': {'total': 0, 'count': 0, 'subcategories': [], 'color': '#10b981', 'icon': 'fa-building'},
+            'Autres': {'total': 0, 'count': 0, 'subcategories': [], 'color': '#8b5cf6', 'icon': 'fa-ellipsis-h'},
+        }
+        
+        keywords_mapping = {
+            'Travaux': ['travaux', 'maçonnerie', 'plomberie', 'carrelage', 'peinture', 'courant', 'menuiserie', 'finitions', 'soudeur', 'quincaillerie'],
+            'Aménagement': ['aménagement', 'mobilier', 'matériel', 'équipement'],
+            'Véhicule': ['véhicule', 'carburant', 'assurance', 'entretien', 'mécanique'],
+            'Fiscales': ['fiscales', 'impôt', 'cnas', 'casnos', 'quittance'],
+            'Fonctionnement': ['fonctionnement', 'locale', 'loyer', 'nettoyage', 'sécurité', 'abonnement', 'téléphone', 'internet', 'électricité', 'gaz', 'eau', 'hébergement', 'logiciels', 'cloud', 'entreprise', 'bureautique', 'impression', 'publicité'],
+        }
+        
+        for item in type_distribution_raw:
+            type_name = (item.get('type_charge') or '').lower()
+            matched = False
+            for cat_name, keywords in keywords_mapping.items():
+                if any(kw in type_name for kw in keywords):
+                    main_categories[cat_name]['total'] += float(item.get('total') or 0)
+                    main_categories[cat_name]['count'] += item.get('count') or 0
+                    main_categories[cat_name]['subcategories'].append({
+                        'name': item.get('type_charge') or 'Autre',
+                        'total': float(item.get('total') or 0),
+                        'count': item.get('count') or 0
+                    })
+                    matched = True
+                    break
+            if not matched:
+                main_categories['Autres']['total'] += float(item.get('total') or 0)
+                main_categories['Autres']['count'] += item.get('count') or 0
+                main_categories['Autres']['subcategories'].append({
+                    'name': item.get('type_charge') or 'Autre',
+                    'total': float(item.get('total') or 0),
+                    'count': item.get('count') or 0
+                })
+        
+        # Convert to list and calculate percentages
+        categories_list = []
+        for name, data in main_categories.items():
+            if data['total'] > 0:
+                pct = (data['total'] / float(total_all) * 100) if total_all > 0 else 0
+                categories_list.append({
+                    'name': name,
+                    'total': data['total'],
+                    'count': data['count'],
+                    'percentage': round(pct, 1),
+                    'color': data['color'],
+                    'icon': data['icon'],
+                    'subcategories': sorted(data['subcategories'], key=lambda x: x['total'], reverse=True)[:5]
+                })
+        categories_list.sort(key=lambda x: x['total'], reverse=True)
+        
+        # ============ MONTHLY TREND (12 months) ============
         monthly_trend = list(
-            Charge.objects.filter(date_paiement__gte=now - timezone.timedelta(days=180))
+            Charge.objects.filter(date_paiement__gte=now - timezone.timedelta(days=365))
             .annotate(month=TruncMonth('date_paiement'))
             .values('month')
             .annotate(total=Sum('montant'), count=Count('id'))
             .order_by('month')
         )
-        # Format dates for JSON
         for item in monthly_trend:
             if item.get('month'):
+                month_num = item['month'].month
                 item['month'] = item['month'].strftime('%Y-%m')
+                item['month_name'] = calendar.month_abbr[month_num]
+                item['total'] = float(item['total'] or 0)
+        
+        # ============ WEEKLY TREND (last 8 weeks) ============
+        weekly_trend = list(
+            Charge.objects.filter(date_paiement__gte=now - timezone.timedelta(days=56))
+            .annotate(week=TruncWeek('date_paiement'))
+            .values('week')
+            .annotate(total=Sum('montant'), count=Count('id'))
+            .order_by('week')
+        )
+        for item in weekly_trend:
+            if item.get('week'):
+                item['week'] = item['week'].strftime('%Y-%m-%d')
+                item['total'] = float(item['total'] or 0)
+        
+        # ============ DAILY DISTRIBUTION (last 30 days) ============
+        daily_distribution = list(
+            Charge.objects.filter(date_paiement__gte=now - timezone.timedelta(days=30))
+            .annotate(day=TruncDate('date_paiement'))
+            .values('day')
+            .annotate(total=Sum('montant'), count=Count('id'))
+            .order_by('day')
+        )
+        for item in daily_distribution:
+            if item.get('day'):
+                item['day'] = item['day'].strftime('%Y-%m-%d')
+                item['total'] = float(item['total'] or 0)
+        
+        # ============ DAY OF WEEK PATTERN ============
+        day_names = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+        weekday_stats = Charge.objects.annotate(
+            weekday=ExtractWeekDay('date_paiement')
+        ).values('weekday').annotate(
+            total=Sum('montant'),
+            count=Count('id'),
+            avg=Avg('montant')
+        ).order_by('weekday')
+        
+        weekday_distribution = []
+        for i in range(1, 8):  # 1=Sunday to 7=Saturday in Django
+            # Convert to Monday=0 format
+            py_weekday = (i - 2) % 7
+            stat = next((s for s in weekday_stats if s['weekday'] == i), None)
+            weekday_distribution.append({
+                'day': day_names[py_weekday],
+                'total': float(stat['total'] or 0) if stat else 0,
+                'count': stat['count'] if stat else 0,
+                'avg': float(stat['avg'] or 0) if stat else 0
+            })
+        
+        # ============ TOP FOURNISSEURS ============
+        top_fournisseurs = list(
+            Charge.objects.exclude(fournisseur__isnull=True).exclude(fournisseur='')
+            .values('fournisseur')
+            .annotate(total=Sum('montant'), count=Count('id'))
+            .order_by('-total')[:10]
+        )
+        for item in top_fournisseurs:
+            item['total'] = float(item['total'] or 0)
+        
+        # ============ AVERAGES & INSIGHTS ============
+        # Average per day (last 30 days)
+        days_with_charges = Charge.objects.filter(
+            date_paiement__gte=now - timezone.timedelta(days=30)
+        ).values('date_paiement').distinct().count()
+        avg_per_day = float(month_total) / max(days_with_charges, 1)
+        
+        # Average per charge
+        avg_per_charge = float(total_all) / max(total_count, 1)
+        
+        # Biggest expense
+        biggest_expense = Charge.objects.order_by('-montant').first()
+        biggest_expense_data = None
+        if biggest_expense:
+            biggest_expense_data = {
+                'id': biggest_expense.id,
+                'type': biggest_expense.type_charge or 'N/A',
+                'montant': float(biggest_expense.montant or 0),
+                'date': biggest_expense.date_paiement.isoformat() if biggest_expense.date_paiement else None,
+                'fournisseur': biggest_expense.fournisseur or ''
+            }
+        
+        # Month-over-month change
+        month_change_pct = 0
+        if last_month_total > 0:
+            month_change_pct = round(((float(month_total) - float(last_month_total)) / float(last_month_total)) * 100, 1)
+        
+        # Year-over-year change
+        year_change_pct = 0
+        if last_year_total > 0:
+            year_change_pct = round(((float(year_total) - float(last_year_total)) / float(last_year_total)) * 100, 1)
         
         return JsonResponse({
             'success': True,
             'stats': {
+                # Summary
                 'total_all': float(total_all),
                 'total_count': total_count,
+                'today_total': float(today_total),
+                'today_count': today_count,
+                'week_total': float(week_total),
+                'week_count': week_count,
                 'month_total': float(month_total),
                 'month_count': month_count,
                 'year_total': float(year_total),
                 'year_count': year_count,
-                'type_distribution': type_distribution,
+                
+                # Comparisons
+                'last_month_total': float(last_month_total),
+                'month_change_pct': month_change_pct,
+                'last_year_total': float(last_year_total),
+                'year_change_pct': year_change_pct,
+                
+                # Averages
+                'avg_per_day': round(avg_per_day, 2),
+                'avg_per_charge': round(avg_per_charge, 2),
+                
+                # Distributions
+                'categories': categories_list,
+                'type_distribution': type_distribution_raw[:15],  # Legacy support
                 'monthly_trend': monthly_trend,
+                'weekly_trend': weekly_trend,
+                'daily_distribution': daily_distribution,
+                'weekday_distribution': weekday_distribution,
+                
+                # Top items
+                'top_fournisseurs': top_fournisseurs,
+                'biggest_expense': biggest_expense_data,
             }
         })
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
