@@ -1,4 +1,4 @@
-﻿from django.shortcuts import render
+from django.shortcuts import render
 from django.http import JsonResponse
 from django.db.models import Sum, Avg, Count, Q
 from .utils import calculate_balances
@@ -6621,7 +6621,6 @@ def api_charges_types(request):
             {'key': 'fiscales', 'label': 'Charges Fiscales'},
             {'key': 'fonctionnement', 'label': 'Charge de fonctionnement'},
             {'key': 'autres', 'label': 'Autres frais'},
-            {'key': 'abonnement', 'label': 'Charge abonnement'},
         ]
         
         sub_types = {
@@ -6653,11 +6652,28 @@ def api_charges_types(request):
                 {'key': 'quittance_fiscale', 'label': 'Quittance fiscale'},
             ],
             'fonctionnement': [
-                {'key': 'fourniture_bureautique', 'label': 'Fourniture bureautique'},
-                {'key': 'impression_photocopie', 'label': 'Impression et photocopie'},
-                {'key': 'publicite', 'label': 'Publicité'},
-                {'key': 'loyer', 'label': 'Loyer'},
-                {'key': 'entretien_nettoyage', 'label': 'Entretien et nettoyage'},
+                {'key': 'locale', 'label': 'Locale', 'sub_items': [
+                    {'key': 'loyer', 'label': 'Loyer'},
+                    {'key': 'entretien_nettoyage', 'label': 'Entretien et nettoyage'},
+                    {'key': 'securite', 'label': 'Sécurité'},
+                ]},
+                {'key': 'abonnement', 'label': 'Abonnement', 'sub_items': [
+                    {'key': 'tel_fixe', 'label': 'Téléphone Fixe'},
+                    {'key': 'tel_mobile', 'label': 'Téléphone Mobile'},
+                    {'key': 'internet', 'label': 'Internet (ADSL/Fibre/4G/5G)'},
+                    {'key': 'electricite', 'label': 'Électricité'},
+                    {'key': 'gaz', 'label': 'GAZ'},
+                    {'key': 'eau', 'label': 'EAU (ADE)'},
+                    {'key': 'tv', 'label': 'Facture TV'},
+                    {'key': 'hebergement', 'label': 'Hébergement (site/domaine)'},
+                    {'key': 'logiciels', 'label': 'Logiciels'},
+                    {'key': 'cloud', 'label': 'Cloud (Drive, AWS)'},
+                ]},
+                {'key': 'entreprise', 'label': 'Entreprise', 'sub_items': [
+                    {'key': 'fourniture_bureautique', 'label': 'Fourniture Bureautique'},
+                    {'key': 'impression_photocopie', 'label': 'Impression et photocopie'},
+                    {'key': 'publicite', 'label': 'Publicité'},
+                ]},
             ],
             'autres': [
                 {'key': 'alimentation', 'label': 'Alimentations'},
@@ -6665,14 +6681,6 @@ def api_charges_types(request):
                 {'key': 'voyage', 'label': 'Voyage'},
                 {'key': 'transport', 'label': 'Transport'},
                 {'key': 'divers', 'label': 'Divers'},
-            ],
-            'abonnement': [
-                {'key': 'facture_electricite', 'label': "Facture d'électricité"},
-                {'key': 'facture_gaz', 'label': 'Facture Gaz'},
-                {'key': 'facture_eau', 'label': "Facture d'eau"},
-                {'key': 'facture_internet', 'label': 'Facture internet'},
-                {'key': 'facture_telephone', 'label': 'Facture téléphone'},
-                {'key': 'facture_TV', 'label': 'Facture TV'},
             ],
         }
         
