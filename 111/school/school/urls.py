@@ -1,4 +1,4 @@
-﻿from django.contrib import admin
+from django.contrib import admin
 from django.contrib import admin
 from django.urls import path, re_path
 from Schoolapp import views
@@ -157,6 +157,18 @@ urlpatterns = [
   path('student/payments/', views.student_payments_detailed, name='student_payments'),
   path('student/planning/', views.student_planning, name='student_planning'),
   path('student/formations/', views.student_formations_available, name='student_formations'),
+
+  # Student Mobile API
+  path('api/mobile/student/login/', views.api_student_login, name='api_student_login'),
+  path('api/mobile/student/profile/', views.api_student_profile, name='api_student_profile'),
+  path('api/mobile/student/profile/update/', views.api_student_profile_update, name='api_student_profile_update'),
+  path('api/mobile/student/formations/', views.api_student_formations, name='api_student_formations'),
+  path('api/mobile/student/inscriptions/', views.api_student_inscriptions, name='api_student_inscriptions'),
+  path('api/mobile/student/inscriptions/create/', views.api_student_inscription_create, name='api_student_inscription_create'),
+  path('api/mobile/student/payments/', views.api_student_payments, name='api_student_payments'),
+  
+  # Student Mobile App
+  path('m/student/', views.mobile_student_app, name='mobile_student_app'),
 
 ]
 
