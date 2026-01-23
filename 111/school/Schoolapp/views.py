@@ -9333,7 +9333,7 @@ def api_student_login(request):
                 'prenom': etudiant.prenom,
                 'email': etudiant.email or '',
                 'telephone': etudiant.telephone or '',
-                'photo': photo_url,
+                'photo': request.build_absolute_uri(settings.MEDIA_URL + str(etudiant.photo)) if etudiant.photo and not str(etudiant.photo).startswith('http') else (etudiant.photo or ''),
                 'niveau_etude': etudiant.niveau_etude or '',
                 'date_inscription': etudiant.date_inscription.isoformat() if etudiant.date_inscription else None,
             }
@@ -9361,10 +9361,10 @@ def api_student_profile(request):
         # Build photo URL
         photo_url = ''
         if etudiant.photo:
-            try:
-                photo_url = settings.MEDIA_URL + etudiant.photo
-            except:
+            if str(etudiant.photo).startswith('http'):
                 photo_url = etudiant.photo
+            else:
+                photo_url = request.build_absolute_uri(settings.MEDIA_URL + str(etudiant.photo))
         
         # Get inscriptions count
         inscriptions_count = Inscription.objects.filter(etudiant=etudiant).count()
@@ -9442,10 +9442,10 @@ def api_student_formations(request):
         for f in qs[:50]:
             photo_url = ''
             if f.photo:
-                try:
-                    photo_url = settings.MEDIA_URL + f.photo
-                except:
+                if str(f.photo).startswith('http'):
                     photo_url = f.photo
+                else:
+                    photo_url = request.build_absolute_uri(settings.MEDIA_URL + str(f.photo))
             
             # Get instructor (first enseignant linked to this formation)
             instructor = None
@@ -9454,7 +9454,7 @@ def api_student_formations(request):
                 if ens:
                     instructor = {
                         'name': f"{ens.prenom} {ens.nom}",
-                        'photo': settings.MEDIA_URL + ens.photo if ens.photo else ''
+                        'photo': request.build_absolute_uri(settings.MEDIA_URL + str(ens.photo)) if ens.photo and not str(ens.photo).startswith('http') else (ens.photo or '')
                     }
             except:
                 pass
@@ -9508,10 +9508,10 @@ def api_student_inscriptions(request):
             
             photo_url = ''
             if formation and formation.photo:
-                try:
-                    photo_url = settings.MEDIA_URL + formation.photo
-                except:
+                if str(formation.photo).startswith('http'):
                     photo_url = formation.photo
+                else:
+                    photo_url = request.build_absolute_uri(settings.MEDIA_URL + str(formation.photo))
             
             # Calculate payment progress
             prix_total = float(ins.prix_total or 0) if ins.prix_total else (
@@ -9541,7 +9541,7 @@ def api_student_inscriptions(request):
                     if ens:
                         instructor = {
                             'name': f"{ens.prenom} {ens.nom}",
-                            'photo': settings.MEDIA_URL + ens.photo if ens.photo else ''
+                            'photo': request.build_absolute_uri(settings.MEDIA_URL + str(ens.photo)) if ens.photo and not str(ens.photo).startswith('http') else (ens.photo or '')
                         }
             except:
                 pass
@@ -9739,10 +9739,10 @@ def api_student_profile_update(request):
         # Return updated profile URL
         photo_url = ''
         if student.photo:
-            if student.photo.startswith('http'):
+            if str(student.photo).startswith('http'):
                  photo_url = student.photo
             else:
-                 photo_url = settings.MEDIA_URL + str(student.photo)
+                 photo_url = request.build_absolute_uri(settings.MEDIA_URL + str(student.photo))
                 
         return JsonResponse({
             'success': True, 
