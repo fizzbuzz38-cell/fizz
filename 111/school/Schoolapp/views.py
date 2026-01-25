@@ -4156,12 +4156,73 @@ def inscriptions_view(request):
                             try:
                                 fid = int(p.split(':',1)[1])
                                 # try Enseignant first, then Utilisateur
-                                f = None
-                                try:
-                                    f = Enseignant.objects.filter(id=fid).first()
-                                except Exception:
-                                    f = None
-                                if not f:
+            try:
+                import requests
+                import json
+                import base64
+                
+                # Encode image to base64
+                # Go back to start of file to read it again
+                f.seek(0)
+                image_bytes = f.read()
+                base64_image = base64.b64encode(image_bytes).decode('utf-8')
+                
+                # Prepare API call
+                api_key = "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" # Hardcoded per request
+                
+                response = requests.post(
+                  url="https://openrouter.ai/api/v1/chat/completions",
+                  headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    # "HTTP-Referer": "https://genieschool.up.railway.app", 
+                    # "X-Title": "GenieSchool", 
+                  },
+                  data=json.dumps({
+                    "model": "allenai/molmo-2-8b:free",
+                    "messages": [
+                      {
+                        "role": "user",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "Extract the National Identification Number (NIN) from this Identity Card image. It is usually a long sequence of digits (9 to 20 digits). Return ONLY the number digits, no other text."
+                          },
+                          {
+                            "type": "image_url",
+                            "image_url": {
+                              "url": f"data:image/jpeg;base64,{base64_image}"
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }),
+                  timeout=30 
+                )
+                
+                if response.status_code == 200:
+                    ai_response = response.json()
+                    content = ai_response['choices'][0]['message']['content']
+                    print(f"AI OCR Raw Response: {content}")
+                    
+                    # Clean and extract digits
+                    import re
+                    # Remove non-digit characters to be safe
+                    possible_nin = re.sub(r'\D', '', content)
+                    
+                    # Basic validation (e.g. at least 8 digits)
+                    if len(possible_nin) >= 8:
+                        student.nin = possible_nin
+                        print(f"NIN Detected and saved: {possible_nin}")
+                    else:
+                        print(f"AI returned invalid NIN content: {content}")
+                else:
+                    print(f"OpenRouter API Error: {response.status_code} - {response.text}")
+
+            except Exception as ocr_error:
+                print(f"OCR Error: {ocr_error}")
+            # ---------------------------                   if not f:
                                     f = Utilisateur.objects.filter(id=fid).first()
                                 if f:
                                     ins.formateur_name = str(f)
@@ -9397,8 +9458,6 @@ def api_student_profile(request):
                 'dernier_diplome': etudiant.dernier_diplome or '',
                 'situation_professionnelle': etudiant.situation_professionnelle or '',
                 'photo': photo_url,
-                'carte_identite_photo': request.build_absolute_uri(settings.MEDIA_URL + str(etudiant.carte_identite_photo)) if etudiant.carte_identite_photo else None,
-                'nin': etudiant.nin or '',
                 'date_inscription': etudiant.date_inscription.isoformat() if etudiant.date_inscription else None,
                 'inscriptions_count': inscriptions_count,
                 'balance': float(balance),
@@ -9761,14 +9820,14 @@ def api_student_profile_update(request):
         import traceback
         return JsonResponse({'success': False, 'error': str(e), 'trace': traceback.format_exc()}, status=500)
 
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def api_student_signup(request):
     """
     Register a new student.
     POST /api/mobile/student/signup/
-    Body (JSON): { "nom": "...", "prenom": "...", "email": "...", "telephone": "..." }
-    Returns: { "success": true, "student_id": 123 }
+    Body (JSON): { "nom": "...", "prenom": "...", "email": "...", "telephone": "...", "adresse": "..." }
     """
     import json
     try:
@@ -9789,7 +9848,6 @@ def api_student_signup(request):
              return JsonResponse({'success': False, 'error': 'Nom et Prénom requis'}, status=400)
 
         # Create student
-        # We initialize with basic info. 
         etudiant = Etudiant.objects.create(
             nom=nom,
             prenom=prenom,
@@ -9799,7 +9857,7 @@ def api_student_signup(request):
             date_naissance=date_naissance if date_naissance else None,
             date_inscription=timezone.now().date(),
             verification_step=0,
-            statut='actif' # Default status
+            statut='actif'
         )
         
         return JsonResponse({
@@ -9821,7 +9879,7 @@ def api_student_signup(request):
 @require_http_methods(["POST"])
 def api_student_upload_docs(request):
     """
-    Upload identity documents.
+    Upload identity documents and extract NIN via OpenRouter AI.
     POST /api/mobile/student/upload-docs/
     FormData: student_id, carte_identite (file)
     """
@@ -9853,40 +9911,74 @@ def api_student_upload_docs(request):
             file_path = default_storage.save(path, ContentFile(f.read()))
             student.carte_identite_photo = file_path
             
-            # --- OCR LOGIC (EasyOCR) ---
+            # --- OCR LOGIC (OpenRouter AI) ---
             try:
-                import easyocr
-                import re
+                import requests
+                import json
+                import base64
                 
-                # Initialize reader for French and English (download happens only once)
-                # gpu=False to be safe on servers without CUDA, set to True if available
-                reader = easyocr.Reader(['fr', 'en'], gpu=False) 
+                # Encode image to base64
+                # Go back to start of file to read it again
+                sensed_file = request.FILES['carte_identite']
+                sensed_file.seek(0)
+                image_bytes = sensed_file.read()
+                base64_image = base64.b64encode(image_bytes).decode('utf-8')
                 
-                # Get full path for OCR processing
-                full_path = os.path.join(settings.MEDIA_ROOT, path)
+                # Prepare API call
+                api_key = "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"
                 
-                # Read text
-                result = reader.readtext(full_path, detail=0)
-                full_text = " ".join(result)
-                print(f"OCR Result for Student {student.id}: {full_text}")
+                response = requests.post(
+                  url="https://openrouter.ai/api/v1/chat/completions",
+                  headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                  },
+                  data=json.dumps({
+                    "model": "allenai/molmo-2-8b:free",
+                    "messages": [
+                      {
+                        "role": "user",
+                        "content": [
+                          {
+                            "type": "text",
+                            "text": "Extract the National Identification Number (NIN) from this Identity Card image. It is usually a long sequence of digits (9 to 20 digits). Return ONLY the number digits, no other text."
+                          },
+                          {
+                            "type": "image_url",
+                            "image_url": {
+                              "url": f"data:image/jpeg;base64,{base64_image}"
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }),
+                  timeout=30 
+                )
                 
-                # Heuristic: Find the longest numeric sequence usually representing ID/NIN
-                # Cleaning spaces to concatenate split numbers (e.g. "109 333")
-                clean_text = full_text.replace(" ", "")
-                
-                # Search for sequence of digits (e.g., 9 to 18 digits)
-                # Adjust regex based on specific country NIN format if known
-                nin_candidates = re.findall(r'\d{9,20}', clean_text)
-                
-                if nin_candidates:
-                    # Take the longest one found as the most likely NIN
-                    detected_nin = max(nin_candidates, key=len)
-                    student.nin = detected_nin
-                    print(f"NIN Detected and saved: {detected_nin}")
-            except ImportError:
-                print("EasyOCR not installed. Skipping OCR.")
+                if response.status_code == 200:
+                    ai_response = response.json()
+                    try:
+                        content = ai_response['choices'][0]['message']['content']
+                        print(f"AI OCR Raw Response: {content}")
+                        
+                        # Clean and extract digits
+                        import re
+                        possible_nin = re.sub(r'\D', '', content)
+                        
+                        # Basic validation
+                        if len(possible_nin) >= 8:
+                            student.nin = possible_nin
+                            print(f"NIN Detected and saved: {possible_nin}")
+                        else:
+                            print(f"AI returned invalid NIN content: {content}")
+                    except (KeyError, IndexError):
+                        print("Invalid AI response format")
+                else:
+                    print(f"OpenRouter API Error: {response.status_code} - {response.text}")
+
             except Exception as ocr_error:
-                print(f"OCR Error: {ocr_error}")
+                print(f"OCR Logic Error: {ocr_error}")
             # ---------------------------
 
             # Update verification step if needed
@@ -9905,7 +9997,6 @@ def api_student_upload_docs(request):
     except Exception as e:
         import traceback
         return JsonResponse({'success': False, 'error': str(e), 'trace': traceback.format_exc()}, status=500)
-
 
 
 def mobile_student_app(request):
