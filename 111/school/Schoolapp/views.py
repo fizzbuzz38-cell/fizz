@@ -9759,6 +9759,107 @@ def api_student_profile_update(request):
         import traceback
         return JsonResponse({'success': False, 'error': str(e), 'trace': traceback.format_exc()}, status=500)
 
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_student_signup(request):
+    """
+    Register a new student.
+    POST /api/mobile/student/signup/
+    Body (JSON): { "nom": "...", "prenom": "...", "email": "...", "telephone": "..." }
+    Returns: { "success": true, "student_id": 123 }
+    """
+    import json
+    try:
+        # Support JSON body
+        if request.content_type and 'application/json' in request.content_type:
+            data = json.loads(request.body)
+        else:
+            data = request.POST
+
+        nom = data.get('nom')
+        prenom = data.get('prenom')
+        email = data.get('email')
+        telephone = data.get('telephone')
+
+        if not nom or not prenom:
+             return JsonResponse({'success': False, 'error': 'Nom et Prénom requis'}, status=400)
+
+        # Create student
+        # We initialize with basic info. 
+        etudiant = Etudiant.objects.create(
+            nom=nom,
+            prenom=prenom,
+            email=email,
+            telephone=telephone,
+            date_inscription=timezone.now().date(),
+            verification_step=0,
+            statut='actif' # Default status
+        )
+        
+        return JsonResponse({
+            'success': True, 
+            'message': 'Compte créé avec succès !',
+            'student_id': etudiant.id,
+            'student': {
+                'id': etudiant.id,
+                'nom': etudiant.nom,
+                'prenom': etudiant.prenom
+            }
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_student_upload_docs(request):
+    """
+    Upload identity documents.
+    POST /api/mobile/student/upload-docs/
+    FormData: student_id, carte_identite (file)
+    """
+    from django.core.files.storage import default_storage
+    from django.core.files.base import ContentFile
+    import os
+    from django.shortcuts import get_object_or_404
+
+    try:
+        student_id = request.POST.get('student_id')
+        if not student_id:
+             return JsonResponse({'success': False, 'error': 'ID étudiant manquant'}, status=400)
+
+        student = get_object_or_404(Etudiant, pk=student_id)
+        
+        # Handle Identity Card
+        if 'carte_identite' in request.FILES:
+            f = request.FILES['carte_identite']
+            ext = os.path.splitext(f.name)[1]
+            path = f"etudiants/docs/student_{student.id}_cni{ext}"
+            
+            # Remove old if exists
+            if student.carte_identite_photo and default_storage.exists(student.carte_identite_photo):
+                try:
+                    default_storage.delete(student.carte_identite_photo)
+                except:
+                    pass
+
+            file_path = default_storage.save(path, ContentFile(f.read()))
+            student.carte_identite_photo = file_path
+            # Update verification step if needed
+            if student.verification_step < 1:
+                student.verification_step = 1
+            student.save()
+            
+            return JsonResponse({'success': True, 'message': 'Carte d\'identité téléversée !'})
+            
+        return JsonResponse({'success': False, 'error': 'Aucun fichier fourni'}, status=400)
+
+    except Exception as e:
+        import traceback
+        return JsonResponse({'success': False, 'error': str(e), 'trace': traceback.format_exc()}, status=500)
+
+
 
 def mobile_student_app(request):
     """
