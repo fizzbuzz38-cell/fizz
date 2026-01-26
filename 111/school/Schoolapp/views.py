@@ -9874,12 +9874,13 @@ def api_student_upload_docs(request):
                 image_bytes = sensed_file.read()
                 base64_image = base64.b64encode(image_bytes).decode('utf-8')
                 
-                # Retrieve API Key from settings (environment variable)
-                api_key = getattr(settings, 'OPENROUTER_API_KEY', os.environ.get('OPENROUTER_API_KEY'))
+                # Prepare API call
+                from django.conf import settings
+                api_key = getattr(settings, 'OPENROUTER_API_KEY', None)
                 
                 if not api_key:
-                    print("ERROR: OPENROUTER_API_KEY not found in environment or settings.")
-                    return JsonResponse({'success': False, 'error': 'Configuration API manquante sur le serveur'}, status=500)
+                    print("CRITICAL ERROR: OPENROUTER_API_KEY is not defined in environment variables!")
+                    return JsonResponse({'success': False, 'error': 'Configuration API (Clé manquante) sur le serveur'}, status=500)
 
                 response = requests.post(
                   url="https://openrouter.ai/api/v1/chat/completions",
@@ -9887,6 +9888,7 @@ def api_student_upload_docs(request):
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
                   },
+                  # ... rest of the call ...
                   data=json.dumps({
                     "model": "allenai/molmo-2-8b:free",
                     "messages": [
@@ -9912,23 +9914,24 @@ def api_student_upload_docs(request):
                     ai_response = response.json()
                     try:
                         content = ai_response['choices'][0]['message']['content'].strip()
-                        print(f"DEBUG OCR: Molmo response: {content}")
+                        print(f"DEBUG OCR: Molmo response content: {content}")
                         
                         import re
-                        # Clean spaces/dots and find sequences of 9-20 digits
-                        all_numbers = re.findall(r'\d{9,22}', content.replace(" ", "").replace(".", ""))
+                        # Robust cleaning and finding
+                        clean_content = content.replace(" ", "").replace(".", "").replace("-", "")
+                        all_numbers = re.findall(r'\d{9,22}', clean_content)
                         
                         if all_numbers:
-                            # Use the longest numeric sequence
                             newly_detected_nin = max(all_numbers, key=len)
                             student.nin = newly_detected_nin
-                            print(f"DEBUG OCR: New NIN detected: {newly_detected_nin}")
+                            print(f"DEBUG OCR: Successfully detected NIN: {newly_detected_nin}")
                         else:
-                            print(f"DEBUG OCR: No digits found in AI response.")
+                            print(f"DEBUG OCR: No valid NIN sequence found in response: {content}")
                     except (KeyError, IndexError):
-                        print("DEBUG OCR: Parsing AI response failed.")
+                        print("DEBUG OCR: AI returned unexpected JSON format.")
                 else:
-                    print(f"DEBUG OCR: API Error {response.status_code}: {response.text}")
+                    print(f"DEBUG OCR: OpenRouter API Error {response.status_code}: {response.text}")
+                    return JsonResponse({'success': False, 'error': f"Erreur API OpenRouter ({response.status_code}) - Vérifiez votre clé API"}, status=500)
 
             except Exception as e:
                 print(f"DEBUG OCR: Global Exception: {str(e)}")
