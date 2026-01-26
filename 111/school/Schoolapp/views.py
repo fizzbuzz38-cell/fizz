@@ -9887,8 +9887,9 @@ def api_student_upload_docs(request):
                   headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
+                    "HTTP-Referer": "https://genieschool.up.railway.app",
+                    "X-Title": "GenieSchool",
                   },
-                  # ... rest of the call ...
                   data=json.dumps({
                     "model": "allenai/molmo-2-8b:free",
                     "messages": [
@@ -9897,7 +9898,7 @@ def api_student_upload_docs(request):
                         "content": [
                           {
                             "type": "text",
-                            "text": "Extract the National Identification Number (NIN) from this Identity Card. Look for a long number (usually 18 digits). Return ONLY the digits of the number, nothing else."
+                            "text": "Identify and extract the National Identification Number (NIN) from this card. Return ONLY the digits, no other text."
                           },
                           {
                             "type": "image_url",
@@ -9914,24 +9915,23 @@ def api_student_upload_docs(request):
                     ai_response = response.json()
                     try:
                         content = ai_response['choices'][0]['message']['content'].strip()
-                        print(f"DEBUG OCR: Molmo response content: {content}")
+                        print(f"DEBUG OCR: AI Response: {content}")
                         
                         import re
-                        # Robust cleaning and finding
-                        clean_content = content.replace(" ", "").replace(".", "").replace("-", "")
-                        all_numbers = re.findall(r'\d{9,22}', clean_content)
+                        # Clean: remove absolutely everything that is not a digit
+                        clean_digits = re.sub(r'\D', '', content)
                         
-                        if all_numbers:
-                            newly_detected_nin = max(all_numbers, key=len)
+                        if len(clean_digits) >= 8:
+                            newly_detected_nin = clean_digits
                             student.nin = newly_detected_nin
-                            print(f"DEBUG OCR: Successfully detected NIN: {newly_detected_nin}")
+                            print(f"DEBUG OCR: NIN detected and updated: {newly_detected_nin}")
                         else:
-                            print(f"DEBUG OCR: No valid NIN sequence found in response: {content}")
+                            print(f"DEBUG OCR: No valid NIN found in: {content}")
                     except (KeyError, IndexError):
-                        print("DEBUG OCR: AI returned unexpected JSON format.")
+                        print("DEBUG OCR: Parsing failed.")
                 else:
-                    print(f"DEBUG OCR: OpenRouter API Error {response.status_code}: {response.text}")
-                    return JsonResponse({'success': False, 'error': f"Erreur API OpenRouter ({response.status_code}) - Vérifiez votre clé API"}, status=500)
+                    print(f"DEBUG OCR: API Error {response.status_code}: {response.text}")
+                    return JsonResponse({'success': False, 'error': f"Erreur API ({response.status_code}) - Vérifiez votre clé sur Railway"}, status=500)
 
             except Exception as e:
                 print(f"DEBUG OCR: Global Exception: {str(e)}")
