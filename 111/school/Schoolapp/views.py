@@ -9868,6 +9868,8 @@ def api_student_upload_docs(request):
         try:
             file_path = default_storage.save(path, ContentFile(f.read()))
             student.carte_identite_photo = file_path
+            # IMPORTANT: Sauvegarder immédiatement pour que la carte soit visible dans le profil
+            student.save()
         except Exception as e_save:
             debug_msg = f"Erreur lors de la sauvegarde du fichier: {str(e_save)}"
             raw_ai_response = "SAVE_ERROR"
@@ -9942,23 +9944,32 @@ def api_student_upload_docs(request):
                     if response.status_code == 200:
                         try:
                             ai_response = response.json()
+                            print(f"DEBUG OCR: Full AI Response: {ai_response}")
                         except Exception as e_json:
                             ai_response = None
                             raw_ai_response = f"JSON parse error: {str(e_json)[:50]}"
                             debug_msg = "Erreur: impossible de parser la réponse JSON de l'API"
                             print(f"DEBUG OCR: JSON parse error: {str(e_json)}")
+                            print(f"DEBUG OCR: Response text: {response.text[:500]}")
 
                         # Extract content from model response if available
                         if ai_response is not None:
                             try:
                                 content = None
+                                
+                                # Try standard OpenAI format first
                                 if isinstance(ai_response, dict):
                                     choices = ai_response.get('choices', [])
                                     if choices and len(choices) > 0:
                                         msg = choices[0].get('message', {})
                                         if isinstance(msg, dict) and 'content' in msg:
                                             content = msg['content']
-
+                                
+                                # Fallback: try direct 'content' at top level
+                                if content is None and isinstance(ai_response, dict):
+                                    content = ai_response.get('content')
+                                
+                                # Last resort: use response text
                                 if content is None:
                                     content = response.text or ""
 
@@ -9967,31 +9978,50 @@ def api_student_upload_docs(request):
                                     
                                 content = content.strip()
                                 raw_ai_response = content[:200]
-                                print(f"DEBUG OCR: AI Response content (preview): {raw_ai_response}")
+                                print(f"DEBUG OCR: Extracted content: {raw_ai_response}")
 
                                 import re
                                 # 1. Clean content
-                                clean_content = content.replace(" ", "").replace(".", "").replace("-", "").replace("\n", "")
+                                clean_content = content.replace(" ", "").replace(".", "").replace("-", "").replace("\n", "").replace("\r", "")
+                                print(f"DEBUG OCR: Cleaned content: {clean_content}")
 
                                 # 2. Find digit blocks (8-22 digits)
                                 all_numbers = re.findall(r'\d{8,22}', clean_content)
+                                print(f"DEBUG OCR: Found digit blocks (8-22): {all_numbers}")
 
                                 # 3. Fallback to 6+ digits if needed
                                 if not all_numbers:
                                     alt_numbers = re.findall(r'\d{6,22}', clean_content)
+                                    print(f"DEBUG OCR: Fallback digit blocks (6-22): {alt_numbers}")
                                     if alt_numbers:
                                         all_numbers = alt_numbers
                                         debug_msg = f"Fallback: aucun bloc >=8, trouvé blocs >=6 ({len(all_numbers)})"
                                     else:
-                                        debug_msg = f"Échec: Aucun bloc de chiffres pertinent trouvé dans la réponse."
+                                        # Last resort: find ANY digits
+                                        any_digits = re.findall(r'\d+', clean_content)
+                                        print(f"DEBUG OCR: Last resort any digits: {any_digits}")
+                                        if any_digits:
+                                            all_numbers = any_digits
+                                            debug_msg = f"Dernier recours: trouvé {len(all_numbers)} bloc(s) de chiffres"
+                                        else:
+                                            debug_msg = f"Échec: Aucun bloc de chiffres pertinent trouvé dans la réponse."
                                 else:
                                     newly_detected_nin = max(all_numbers, key=len)
                                     student.nin = newly_detected_nin
                                     debug_msg = f"Succès: {len(all_numbers)} blocs trouvés. NIN choisi: {newly_detected_nin}"
+                                    print(f"DEBUG OCR: Successfully detected NIN: {newly_detected_nin}")
+                                
+                                # Si on a trouvé des nombres, prendre le plus long
+                                if all_numbers and not newly_detected_nin:
+                                    newly_detected_nin = max(all_numbers, key=len)
+                                    student.nin = newly_detected_nin
+                                    print(f"DEBUG OCR: Fallback NIN selection: {newly_detected_nin}")
 
                             except Exception as e_process:
                                 debug_msg = f"Erreur lors du traitement: {str(e_process)[:100]}"
                                 print(f"DEBUG OCR: Exception processing: {str(e_process)}")
+                                import traceback
+                                traceback.print_exc()
                                 if ai_response:
                                     raw_ai_response = str(ai_response)[:100]
                     else:
@@ -10001,7 +10031,7 @@ def api_student_upload_docs(request):
                             raw_ai_response = response.text[:100]
                         except:
                             pass
-                        print(f"DEBUG OCR: API Error {response.status_code}")
+                        print(f"DEBUG OCR: API Error {response.status_code}: {response.text[:200]}")
                 
                 except requests.exceptions.Timeout as e_timeout:
                     debug_msg = "Timeout: la requête API a mis trop de temps"
