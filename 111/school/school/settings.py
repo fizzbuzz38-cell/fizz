@@ -109,11 +109,11 @@ ON_RAILWAY = os.environ.get('RAILWAY_ENVIRONMENT_NAME') is not None
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'bd_gss_2025',
-        'USER': 'root',
-        'PASSWORD': '',
-        'HOST': 'localhost',
-        'PORT': 3306,
+        'NAME': os.environ.get('MYSQLDATABASE', 'railway'),
+        'USER': os.environ.get('MYSQLUSER', 'root'),
+        'PASSWORD': os.environ.get('MYSQLPASSWORD', 'ZPduFjruVJRTYXwPGVaudOiyChOZWGnT' if ON_RAILWAY else ''),
+        'HOST': os.environ.get('MYSQLHOST', 'mysql.railway.internal' if ON_RAILWAY else 'localhost'),
+        'PORT': int(os.environ.get('MYSQLPORT', '3306')),
         'CONN_MAX_AGE': 600,  # Connection pooling
         'OPTIONS': {
             'charset': 'utf8mb4',
@@ -124,6 +124,7 @@ DATABASES = {
         },
     }
 }
+
 
 
 
