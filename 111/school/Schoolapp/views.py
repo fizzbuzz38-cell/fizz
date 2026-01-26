@@ -9934,12 +9934,16 @@ def api_student_upload_docs(request):
                             student.nin = newly_detected_nin
                             debug_msg = f"Succès: {len(all_numbers)} blocs trouvés. NIN choisi: {newly_detected_nin}"
                         else:
-                            debug_msg = f"Échec: Aucun bloc de 9+ chiffres trouvé dans '{content[:50]}...'"
+                            debug_msg = f"Échec: Aucun bloc de 9+ chiffres trouvé dans la réponse."
                     except (KeyError, IndexError) as e:
                         debug_msg = f"Erreur Format JSON AI: {str(e)}"
+                        raw_ai_response = str(ai_response)[:100]
                 else:
-                    debug_msg = f"Erreur API ({response.status_code}): {response.text[:100]}"
-                    return JsonResponse({'success': False, 'error': debug_msg}, status=500)
+                    debug_msg = f"Erreur API ({response.status_code})"
+                    raw_ai_response = f"Erreur: {response.text[:200]}"
+                    print(f"DEBUG OCR: API Error: {response.text}")
+                    # Ne pas retourner 500 ici, on veut voir l'erreur sur le mobile
+
 
             except Exception as e:
                 debug_msg = f"Exception Système OCR: {str(e)}"
