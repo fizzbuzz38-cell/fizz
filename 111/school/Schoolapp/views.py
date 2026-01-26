@@ -10054,17 +10054,28 @@ def api_student_upload_docs(request):
         
         # --- END OCR LOGIC ---
 
-        # Update student record
+        # Update student record - IMPORTANT: Save all changes in one operation
         if student.verification_step < 1:
             student.verification_step = 1
         
+        # Ensure NIN is set on the student object before saving
+        if newly_detected_nin:
+            student.nin = newly_detected_nin
+            print(f"DEBUG: Setting student.nin = {newly_detected_nin}")
+        
         try:
+            # Save everything at once
             student.save()
-            if newly_detected_nin:
-                Etudiant.objects.filter(pk=student.id).update(nin=newly_detected_nin)
+            print(f"DEBUG: Student saved. NIN in DB should be: {newly_detected_nin}")
+            
+            # Verify it was saved
             student.refresh_from_db()
+            print(f"DEBUG: After refresh_from_db, student.nin = {student.nin}")
+            
         except Exception as e_db:
             print(f"DEBUG: Database save error: {str(e_db)}")
+            import traceback
+            traceback.print_exc()
         
         # Always return success with debug info
         return JsonResponse({
