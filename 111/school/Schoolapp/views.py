@@ -9372,16 +9372,14 @@ def api_student_profile(request):
             else:
                 photo_url = request.build_absolute_uri(settings.MEDIA_URL + str(etudiant.photo))
         
-        # Build identity card photo URL - IMPORTANT FIX
+        # Build identity card photo URL - SAME LOGIC AS STUDENT PHOTO
         cni_url = ''
         if etudiant.carte_identite_photo:
-            cni_str = str(etudiant.carte_identite_photo)
-            if cni_str.startswith('http'):
-                cni_url = cni_str
+            if str(etudiant.carte_identite_photo).startswith('http'):
+                cni_url = etudiant.carte_identite_photo
             else:
-                # Use MEDIA_URL path directly
-                cni_url = '/media/' + cni_str
-            print(f"DEBUG PROFILE: Built CNI URL: {cni_url}")
+                cni_url = request.build_absolute_uri(settings.MEDIA_URL + str(etudiant.carte_identite_photo))
+            print(f"DEBUG PROFILE: CNI URL built: {cni_url}")
         else:
             print(f"DEBUG PROFILE: No CNI photo found for student {student_id}")
         
@@ -9878,12 +9876,13 @@ def api_student_upload_docs(request):
             except Exception as e_del:
                 print(f"DEBUG: Could not delete old photo: {e_del}")
 
-        # Save new file
+        # Save new file - SAME LOGIC AS STUDENT PHOTO
         try:
             file_path = default_storage.save(path, ContentFile(f.read()))
             student.carte_identite_photo = file_path
-            # IMPORTANT: Sauvegarder immédiatement pour que la carte soit visible dans le profil
+            # IMPORTANT: Save immediately so the card is visible in profile
             student.save()
+            print(f"DEBUG OCR: Identity card saved to: {file_path}")
         except Exception as e_save:
             debug_msg = f"Erreur lors de la sauvegarde du fichier: {str(e_save)}"
             raw_ai_response = "SAVE_ERROR"
