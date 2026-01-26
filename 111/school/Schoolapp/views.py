@@ -9915,29 +9915,58 @@ def api_student_upload_docs(request):
                 )
                 
                 if response.status_code == 200:
-                    ai_response = response.json()
                     try:
-                        content = ai_response['choices'][0]['message']['content'].strip()
-                        raw_ai_response = content # Pour le debug
-                        print(f"DEBUG OCR: AI Response content: {content}")
-                        
+                        ai_response = response.json()
+                    except Exception as e_json:
+                        ai_response = None
+                        raw_ai_response = f"JSON parse error: {str(e_json)} | text: {response.text[:200]}"
+                        debug_msg = "Erreur: impossible de parser la réponse JSON de l'API"
+                        print(f"DEBUG OCR: JSON parse error: {str(e_json)}")
+
+                    try:
+                        # Extract content from model response if available
+                        content = None
+                        if ai_response:
+                            # defensive access
+                            choices = ai_response.get('choices') if isinstance(ai_response, dict) else None
+                            if choices and len(choices) > 0:
+                                msg = choices[0].get('message') if isinstance(choices[0], dict) else None
+                                if msg and 'content' in msg:
+                                    content = msg['content']
+
+                        if content is None:
+                            content = response.text or ""
+
+                        content = content.strip() if isinstance(content, str) else str(content)
+                        raw_ai_response = content[:200]  # keep a reasonable preview for debugging
+                        print(f"DEBUG OCR: AI Response content (preview): {raw_ai_response}")
+
                         import re
-                        # 1. Nettoyage : retirer espaces et points qui coupent souvent le NIN
+                        # 1. Nettoyage : retirer espaces, points, tirets et sauts de ligne
                         clean_content = content.replace(" ", "").replace(".", "").replace("-", "").replace("\n", "")
-                        
-                        # 2. Recherche de blocs de chiffres (entre 9 et 22 chiffres)
-                        all_numbers = re.findall(r'\d{9,22}', clean_content)
-                        
+
+                        # 2. Recherche de blocs de chiffres (entre 8 et 22 chiffres) — acceptons 8+ pour tolérance
+                        all_numbers = re.findall(r'\d{8,22}', clean_content)
+
+                        # 3. Si aucun bloc 8+ trouvé, tenter une recherche plus permissive (6+)
+                        if not all_numbers:
+                            alt_numbers = re.findall(r'\d{6,22}', clean_content)
+                            if alt_numbers:
+                                all_numbers = alt_numbers
+                                debug_msg = f"Fallback: aucun bloc >=8, trouvé blocs >=6 ({len(all_numbers)})"
+
                         if all_numbers:
-                            # 3. Prendre le bloc le plus long (c'est presque toujours le NIN)
+                            # Prendre le bloc le plus long (probable NIN)
                             newly_detected_nin = max(all_numbers, key=len)
                             student.nin = newly_detected_nin
                             debug_msg = f"Succès: {len(all_numbers)} blocs trouvés. NIN choisi: {newly_detected_nin}"
                         else:
-                            debug_msg = f"Échec: Aucun bloc de 9+ chiffres trouvé dans la réponse."
-                    except (KeyError, IndexError) as e:
-                        debug_msg = f"Erreur Format JSON AI: {str(e)}"
-                        raw_ai_response = str(ai_response)[:100]
+                            debug_msg = f"Échec: Aucun bloc de chiffres pertinent trouvé dans la réponse."
+                    except Exception as e:
+                        debug_msg = f"Erreur lors du traitement de la réponse AI: {str(e)}"
+                        print(f"DEBUG OCR: Exception processing AI response: {str(e)}")
+                        if 'ai_response' in locals() and ai_response:
+                            raw_ai_response = str(ai_response)[:200]
                 else:
                     debug_msg = f"Erreur API ({response.status_code})"
                     raw_ai_response = f"Erreur: {response.text[:200]}"
