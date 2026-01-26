@@ -9857,7 +9857,7 @@ def api_student_upload_docs(request):
             file_path = default_storage.save(path, ContentFile(f.read()))
             student.carte_identite_photo = file_path
             
-            # --- OCR LOGIC (OpenRouter AI) ---
+            # --- OCR LOGIC (OpenRouter AI - Switch to Gemini Flash for better OCR) ---
             newly_detected_nin = None
             try:
                 import requests
@@ -9865,19 +9865,14 @@ def api_student_upload_docs(request):
                 import base64
                 import mimetypes
                 
-                # Determine mime type
                 mime_type, _ = mimetypes.guess_type(path)
-                if not mime_type:
-                    mime_type = 'image/jpeg' # Default
+                if not mime_type: mime_type = 'image/jpeg'
                 
-                # Encode image to base64
                 sensed_file = request.FILES['carte_identite']
                 sensed_file.seek(0)
                 image_bytes = sensed_file.read()
                 base64_image = base64.b64encode(image_bytes).decode('utf-8')
                 
-                # Prepare API call
-                from django.conf import settings
                 api_key = os.environ.get('OPENROUTER_API_KEY', "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")
                 
                 response = requests.post(
@@ -9887,20 +9882,18 @@ def api_student_upload_docs(request):
                     "Content-Type": "application/json",
                   },
                   data=json.dumps({
-                    "model": "allenai/molmo-2-8b:free",
+                    "model": "google/gemini-flash-1.5:free", # Gemini is superior for OCR
                     "messages": [
                       {
                         "role": "user",
                         "content": [
                           {
                             "type": "text",
-                            "text": "Extract the National Identification Number (NIN) from this Identity Card. Look for a long number (usually 18 digits). Return ONLY the digits of the number, nothing else."
+                            "text": "OCR TASK: Identify and extract the 18-digit National Identification Number (NIN) from this card. Look for a long continuous sequence of 18 digits. Return ONLY the 18 digits, nothing else."
                           },
                           {
                             "type": "image_url",
-                            "image_url": {
-                              "url": f"data:{mime_type};base64,{base64_image}"
-                            }
+                            "image_url": { "url": f"data:{mime_type};base64,{base64_image}" }
                           }
                         ]
                       }
@@ -9912,51 +9905,48 @@ def api_student_upload_docs(request):
                 if response.status_code == 200:
                     ai_response = response.json()
                     try:
-                        # Molmo response
                         content = ai_response['choices'][0]['message']['content'].strip()
-                        print(f"DEBUG OCR: Raw response content: {content}")
+                        print(f"DEBUG OCR: Raw response: {content}")
                         
                         import re
-                        # Clean spaces and find all numeric sequences of relevant length
-                        all_numbers = re.findall(r'\d{9,20}', content.replace(" ", ""))
+                        # Clean spaces/dots and find sequences of 17-19 digits
+                        all_numbers = re.findall(r'\d{17,20}', content.replace(" ", "").replace(".", ""))
                         
                         if all_numbers:
-                            # Take the longest numeric sequence (most likely NIN)
                             newly_detected_nin = max(all_numbers, key=len)
-                            # Update the student object with the new detection
                             student.nin = newly_detected_nin
-                            print(f"DEBUG OCR: New NIN detected: {newly_detected_nin}")
+                            print(f"DEBUG OCR: Successful detection: {newly_detected_nin}")
                         else:
-                            print(f"DEBUG OCR: No NIN found in AI response text.")
-                    except (KeyError, IndexError) as e:
-                        print(f"DEBUG OCR: AI JSON response parsing error: {str(e)}")
+                            # Fallback: search for any sequence of 9+ digits if 18 not found exactly
+                            backup = re.findall(r'\d{9,25}', content.replace(" ", ""))
+                            if backup:
+                                newly_detected_nin = max(backup, key=len)
+                                student.nin = newly_detected_nin
+                    except:
+                        pass
                 else:
-                    print(f"DEBUG OCR: API returned error {response.status_code}: {response.text}")
+                    print(f"DEBUG OCR: API Error {response.status_code}")
 
-            except Exception as ocr_error:
-                print(f"DEBUG OCR: Global exception in OCR block: {str(ocr_error)}")
+            except Exception as e:
+                print(f"DEBUG OCR: Exception {str(e)}")
             # ---------------------------
 
-            # Update verification step
             if student.verification_step < 1:
                 student.verification_step = 1
             
-            # Persist changes (this also saves the newly detected NIN if it was found)
+            # Save carefully
             student.save()
             
-            # Double check/Force persistence if NEW NIN was found
+            # Force persistence
             if newly_detected_nin:
                 Etudiant.objects.filter(pk=student.id).update(nin=newly_detected_nin)
-                print(f"DEBUG OCR: NIN {newly_detected_nin} forced to DB update for student {student.id}")
             
-            # Reload to return the absolute state
             student.refresh_from_db()
             
             return JsonResponse({
                 'success': True, 
-                'message': 'Traitement terminé', 
-                'nin_detected': newly_detected_nin, # Return ONLY what we just found
-                'current_nin': student.nin, # Also return the full state
+                'message': 'Analyse terminée', 
+                'nin_detected': newly_detected_nin,
                 'student_id': student.id
             })
             
