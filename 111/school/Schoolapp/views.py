@@ -9937,6 +9937,11 @@ def api_student_upload_docs(request):
                 student.verification_step = 1
             student.save()
             
+            # FORCE UPDATE in DB (bypass potential local instance caching)
+            if student.nin:
+                Etudiant.objects.filter(pk=student.id).update(nin=student.nin)
+                print(f"FORCED PERSISTENCE: NIN {student.nin} saved for student {student.id}")
+            
             return JsonResponse({
                 'success': True, 
                 'message': 'Carte d\'identité téléversée !', 
