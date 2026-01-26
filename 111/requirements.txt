@@ -4,4 +4,5 @@ weasyprint>=58.0
 gunicorn==21.2.0
 mysqlclient
 whitenoise>=6.0
-
+requests
+pillow
