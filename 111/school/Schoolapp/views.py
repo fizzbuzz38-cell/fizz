@@ -9993,22 +9993,22 @@ def api_student_upload_docs(request):
                                 # 2. Find all digit sequences and their lengths
                                 all_digit_sequences = re.findall(r'\d+', clean_content)
                                 print(f"DEBUG OCR: All digit sequences found: {all_digit_sequences}")
+                                print(f"DEBUG OCR: Number of sequences: {len(all_digit_sequences)}")
                                 
                                 # Filter to likely NIN lengths (6-16 digits is reasonable for most NIDs)
                                 candidate_nins = [d for d in all_digit_sequences if 6 <= len(d) <= 16]
                                 print(f"DEBUG OCR: Candidate NIDs (6-16 digits): {candidate_nins}")
+                                print(f"DEBUG OCR: Candidates count: {len(candidate_nins)}")
 
                                 # Choose the longest one as it's most likely to be the NIN
                                 if candidate_nins:
                                     newly_detected_nin = max(candidate_nins, key=len)
-                                    student.nin = newly_detected_nin
                                     debug_msg = f"Succès: NIN détecté: {newly_detected_nin}"
                                     print(f"DEBUG OCR: Successfully detected NIN: {newly_detected_nin}")
                                 else:
                                     # If no candidates in that range, take the longest from all sequences
                                     if all_digit_sequences:
                                         newly_detected_nin = max(all_digit_sequences, key=len)
-                                        student.nin = newly_detected_nin
                                         debug_msg = f"Recours: NIN détecté (hors range): {newly_detected_nin}"
                                         print(f"DEBUG OCR: Fallback NIN detected: {newly_detected_nin}")
                                     else:
@@ -10056,22 +10056,29 @@ def api_student_upload_docs(request):
         if student.verification_step < 1:
             student.verification_step = 1
         
-        # IMPORTANT: Always set the NIN (even if empty or same) to ensure DB sync
+        # IMPORTANT: ALWAYS update the NIN if one was detected (even if it's the same or different)
+        # This is the key fix for the repeat-upload issue
         if newly_detected_nin:
             student.nin = newly_detected_nin
-            print(f"DEBUG: Setting student.nin = {newly_detected_nin}")
+            print(f"DEBUG: SETTING student.nin to NEW value: {newly_detected_nin}")
         else:
-            # Don't reset to empty if NIN wasn't detected, keep existing
-            print(f"DEBUG: NIN not detected, keeping existing: {student.nin}")
+            print(f"DEBUG: No NIN detected in this upload. Keeping existing: {student.nin}")
         
         try:
             # Save everything at once - this updates all fields including NIN
+            print(f"DEBUG: About to save. Current student.nin = {student.nin}")
             student.save()
-            print(f"DEBUG: Student saved. NIN in DB should be: {newly_detected_nin}")
+            print(f"DEBUG: Student.save() completed. NIN should be: {newly_detected_nin}")
             
             # Force a fresh read from database to confirm
             refreshed_student = Etudiant.objects.get(pk=student.id)
-            print(f"DEBUG: Fresh read from DB - NIN is: {refreshed_student.nin}")
+            print(f"DEBUG: Fresh read from DB - refreshed_student.nin = {refreshed_student.nin}")
+            
+            # Verify it matches what we set
+            if refreshed_student.nin == newly_detected_nin:
+                print(f"DEBUG: ✓ SUCCESS: NIN correctly persisted in DB")
+            else:
+                print(f"DEBUG: ✗ MISMATCH: Set to {newly_detected_nin} but DB has {refreshed_student.nin}")
             
         except Exception as e_db:
             print(f"DEBUG: Database save error: {str(e_db)}")
@@ -10079,6 +10086,7 @@ def api_student_upload_docs(request):
             traceback.print_exc()
         
         # Always return success with debug info (even if NIN wasn't detected)
+        print(f"DEBUG: Final response - nin_detected={newly_detected_nin}, debug_msg={debug_msg}")
         return JsonResponse({
             'success': True, 
             'message': 'Analyse terminée', 
