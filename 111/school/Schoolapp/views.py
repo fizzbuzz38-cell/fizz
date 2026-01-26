@@ -9928,7 +9928,7 @@ def api_student_upload_docs(request):
                             "content": [
                               {
                                 "type": "text",
-                                "text": "Identify and extract the National Identification Number (NIN) from this card. Return ONLY the digits, no other text."
+                                "text": "Look at this identity card image. Find the National Identification Number (NIN) or ID number. What numbers do you see? List all digit sequences you can read from the card."
                               },
                               {
                                 "type": "image_url",
@@ -9981,41 +9981,39 @@ def api_student_upload_docs(request):
                                 print(f"DEBUG OCR: Extracted content: {raw_ai_response}")
 
                                 import re
-                                # 1. Clean content
-                                clean_content = content.replace(" ", "").replace(".", "").replace("-", "").replace("\n", "").replace("\r", "")
+                                # 1. Clean content - be more aggressive
+                                clean_content = content.lower()  # lowercase first
+                                # Remove common text markers
+                                clean_content = clean_content.replace("nin", "").replace("number", "").replace("id", "").replace("card", "")
+                                # Remove spaces, dots, dashes, newlines
+                                clean_content = re.sub(r'[\s\.\-\n\r\t/]', '', clean_content)
+                                
                                 print(f"DEBUG OCR: Cleaned content: {clean_content}")
 
-                                # 2. Find digit blocks (8-22 digits)
-                                all_numbers = re.findall(r'\d{8,22}', clean_content)
-                                print(f"DEBUG OCR: Found digit blocks (8-22): {all_numbers}")
-
-                                # 3. Fallback to 6+ digits if needed
-                                if not all_numbers:
-                                    alt_numbers = re.findall(r'\d{6,22}', clean_content)
-                                    print(f"DEBUG OCR: Fallback digit blocks (6-22): {alt_numbers}")
-                                    if alt_numbers:
-                                        all_numbers = alt_numbers
-                                        debug_msg = f"Fallback: aucun bloc >=8, trouvé blocs >=6 ({len(all_numbers)})"
-                                    else:
-                                        # Last resort: find ANY digits
-                                        any_digits = re.findall(r'\d+', clean_content)
-                                        print(f"DEBUG OCR: Last resort any digits: {any_digits}")
-                                        if any_digits:
-                                            all_numbers = any_digits
-                                            debug_msg = f"Dernier recours: trouvé {len(all_numbers)} bloc(s) de chiffres"
-                                        else:
-                                            debug_msg = f"Échec: Aucun bloc de chiffres pertinent trouvé dans la réponse."
-                                else:
-                                    newly_detected_nin = max(all_numbers, key=len)
-                                    student.nin = newly_detected_nin
-                                    debug_msg = f"Succès: {len(all_numbers)} blocs trouvés. NIN choisi: {newly_detected_nin}"
-                                    print(f"DEBUG OCR: Successfully detected NIN: {newly_detected_nin}")
+                                # 2. Find all digit sequences and their lengths
+                                all_digit_sequences = re.findall(r'\d+', clean_content)
+                                print(f"DEBUG OCR: All digit sequences found: {all_digit_sequences}")
                                 
-                                # Si on a trouvé des nombres, prendre le plus long
-                                if all_numbers and not newly_detected_nin:
-                                    newly_detected_nin = max(all_numbers, key=len)
+                                # Filter to likely NIN lengths (6-16 digits is reasonable for most NIDs)
+                                candidate_nins = [d for d in all_digit_sequences if 6 <= len(d) <= 16]
+                                print(f"DEBUG OCR: Candidate NIDs (6-16 digits): {candidate_nins}")
+
+                                # Choose the longest one as it's most likely to be the NIN
+                                if candidate_nins:
+                                    newly_detected_nin = max(candidate_nins, key=len)
                                     student.nin = newly_detected_nin
-                                    print(f"DEBUG OCR: Fallback NIN selection: {newly_detected_nin}")
+                                    debug_msg = f"Succès: NIN détecté: {newly_detected_nin}"
+                                    print(f"DEBUG OCR: Successfully detected NIN: {newly_detected_nin}")
+                                else:
+                                    # If no candidates in that range, take the longest from all sequences
+                                    if all_digit_sequences:
+                                        newly_detected_nin = max(all_digit_sequences, key=len)
+                                        student.nin = newly_detected_nin
+                                        debug_msg = f"Recours: NIN détecté (hors range): {newly_detected_nin}"
+                                        print(f"DEBUG OCR: Fallback NIN detected: {newly_detected_nin}")
+                                    else:
+                                        debug_msg = f"Échec: Aucun nombre trouvé dans la réponse."
+                                        print(f"DEBUG OCR: No digit sequences found at all")
 
                             except Exception as e_process:
                                 debug_msg = f"Erreur lors du traitement: {str(e_process)[:100]}"
