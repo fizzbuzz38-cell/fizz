@@ -9858,6 +9858,7 @@ def api_student_upload_docs(request):
             student.carte_identite_photo = file_path
             
             # --- OCR LOGIC (OpenRouter AI) ---
+            newly_detected_nin = None
             try:
                 import requests
                 import json
@@ -9877,13 +9878,8 @@ def api_student_upload_docs(request):
                 
                 # Prepare API call
                 from django.conf import settings
-                # Use the newly provided key
-                api_key = "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"
+                api_key = os.environ.get('OPENROUTER_API_KEY', "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")
                 
-                # Check if settings has it, otherwise use this one
-                if hasattr(settings, 'OPENROUTER_API_KEY') and settings.OPENROUTER_API_KEY:
-                    api_key = settings.OPENROUTER_API_KEY
-
                 response = requests.post(
                   url="https://openrouter.ai/api/v1/chat/completions",
                   headers={
@@ -9918,48 +9914,49 @@ def api_student_upload_docs(request):
                     try:
                         # Molmo response
                         content = ai_response['choices'][0]['message']['content'].strip()
-                        print(f"DEBUG: OCR Raw response: {content}")
+                        print(f"DEBUG OCR: Raw response content: {content}")
                         
                         import re
-                        # Get all numbers
+                        # Clean spaces and find all numeric sequences of relevant length
                         all_numbers = re.findall(r'\d{9,20}', content.replace(" ", ""))
                         
                         if all_numbers:
                             # Take the longest numeric sequence (most likely NIN)
-                            detected_nin = max(all_numbers, key=len)
-                            student.nin = detected_nin
-                            print(f"DEBUG: NIN detected and updated in instance: {detected_nin} for student {student.id}")
+                            newly_detected_nin = max(all_numbers, key=len)
+                            # Update the student object with the new detection
+                            student.nin = newly_detected_nin
+                            print(f"DEBUG OCR: New NIN detected: {newly_detected_nin}")
                         else:
-                            print(f"DEBUG: No valid NIN found in content: {content}")
+                            print(f"DEBUG OCR: No NIN found in AI response text.")
                     except (KeyError, IndexError) as e:
-                        print(f"DEBUG: AI response format error: {e}")
+                        print(f"DEBUG OCR: AI JSON response parsing error: {str(e)}")
                 else:
-                    print(f"DEBUG: OpenRouter Error {response.status_code}: {response.text}")
+                    print(f"DEBUG OCR: API returned error {response.status_code}: {response.text}")
 
             except Exception as ocr_error:
-                print(f"DEBUG: OCR Logic Exception: {ocr_error}")
+                print(f"DEBUG OCR: Global exception in OCR block: {str(ocr_error)}")
             # ---------------------------
 
             # Update verification step
             if student.verification_step < 1:
                 student.verification_step = 1
             
-            # Persist changes
+            # Persist changes (this also saves the newly detected NIN if it was found)
             student.save()
-            print(f"DEBUG: Student {student.id} saved in DB. current nin value in instance: {student.nin}")
             
-            # Force update again just in case of stale cache
-            if student.nin:
-                Etudiant.objects.filter(pk=student.id).update(nin=student.nin)
+            # Double check/Force persistence if NEW NIN was found
+            if newly_detected_nin:
+                Etudiant.objects.filter(pk=student.id).update(nin=newly_detected_nin)
+                print(f"DEBUG OCR: NIN {newly_detected_nin} forced to DB update for student {student.id}")
             
-            # FINAL REFRESH
+            # Reload to return the absolute state
             student.refresh_from_db()
-            print(f"DEBUG: Final value from DB for student {student.id}: NIN={student.nin}")
             
             return JsonResponse({
                 'success': True, 
-                'message': 'Carte d\'identité téléversée !', 
-                'nin_detected': student.nin,
+                'message': 'Traitement terminé', 
+                'nin_detected': newly_detected_nin, # Return ONLY what we just found
+                'current_nin': student.nin, # Also return the full state
                 'student_id': student.id
             })
             
@@ -9967,7 +9964,9 @@ def api_student_upload_docs(request):
 
     except Exception as e:
         import traceback
-        return JsonResponse({'success': False, 'error': str(e), 'trace': traceback.format_exc()}, status=500)
+        print(f"DEBUG CRITICAL: System Error in api_student_upload_docs: {str(e)}")
+        print(traceback.format_exc())
+        return JsonResponse({'success': False, 'error': f"Erreur système: {str(e)}"}, status=500)
 
 
 def mobile_student_app(request):
