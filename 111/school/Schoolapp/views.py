@@ -9844,8 +9844,9 @@ def api_student_upload_docs(request):
         # Handle Identity Card
         if 'carte_identite' in request.FILES:
             f = request.FILES['carte_identite']
+            # Use exactly the same logic as profile photo update
             ext = os.path.splitext(f.name)[1]
-            path = f"etudiants/docs/student_{student.id}_cni{ext}"
+            path = f"etudiants/photos/student_{student.id}_cni{ext}"
             
             # Remove old if exists
             if student.carte_identite_photo and default_storage.exists(student.carte_identite_photo):
@@ -9854,6 +9855,7 @@ def api_student_upload_docs(request):
                 except:
                     pass
 
+            # Save new file manually
             file_path = default_storage.save(path, ContentFile(f.read()))
             student.carte_identite_photo = file_path
             
