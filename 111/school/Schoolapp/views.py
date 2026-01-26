@@ -9829,62 +9829,87 @@ def api_student_upload_docs(request):
     POST /api/mobile/student/upload-docs/
     FormData: student_id, carte_identite (file)
     """
-    from django.core.files.storage import default_storage
-    from django.core.files.base import ContentFile
-    import os
-    from django.shortcuts import get_object_or_404
-
+    import traceback
+    
+    # Initialize response variables at the TOP level
+    newly_detected_nin = None
+    raw_ai_response = ""
+    debug_msg = "Erreur non spécifiée"
+    student_id = None
+    
     try:
+        from django.core.files.storage import default_storage
+        from django.core.files.base import ContentFile
+        import os
+        from django.shortcuts import get_object_or_404
+
         student_id = request.POST.get('student_id')
         if not student_id:
-             return JsonResponse({'success': False, 'error': 'ID étudiant manquant'}, status=400)
+            return JsonResponse({'success': False, 'error': 'ID étudiant manquant'}, status=400)
 
         student = get_object_or_404(Etudiant, pk=student_id)
         
         # Handle Identity Card
-        if 'carte_identite' in request.FILES:
-            f = request.FILES['carte_identite']
-            # Use exactly the same logic as profile photo update
-            ext = os.path.splitext(f.name)[1]
-            path = f"etudiants/photos/student_{student.id}_cni{ext}"
-            
-            # Remove old if exists
-            if student.carte_identite_photo and default_storage.exists(student.carte_identite_photo):
-                try:
-                    default_storage.delete(student.carte_identite_photo)
-                except:
-                    pass
+        if 'carte_identite' not in request.FILES:
+            return JsonResponse({'success': False, 'error': 'Aucun fichier fourni'}, status=400)
+        
+        f = request.FILES['carte_identite']
+        ext = os.path.splitext(f.name)[1]
+        path = f"etudiants/photos/student_{student.id}_cni{ext}"
+        
+        # Remove old if exists
+        if student.carte_identite_photo and default_storage.exists(student.carte_identite_photo):
+            try:
+                default_storage.delete(student.carte_identite_photo)
+            except Exception as e_del:
+                print(f"DEBUG: Could not delete old photo: {e_del}")
 
-            # Save new file manually
+        # Save new file
+        try:
             file_path = default_storage.save(path, ContentFile(f.read()))
             student.carte_identite_photo = file_path
+        except Exception as e_save:
+            debug_msg = f"Erreur lors de la sauvegarde du fichier: {str(e_save)}"
+            raw_ai_response = "SAVE_ERROR"
+            print(f"DEBUG OCR: Save error: {str(e_save)}")
+            return JsonResponse({
+                'success': False, 
+                'message': 'Fichier sauvegardé mais OCR échoué',
+                'nin_detected': None,
+                'raw_ai_response': raw_ai_response,
+                'debug_info': debug_msg,
+                'student_id': student.id
+            })
+        
+        # --- OCR LOGIC (OpenRouter AI - Ultra Robust) ---
+        debug_msg = "Initialisation OCR..."
+        raw_ai_response = ""
+        
+        try:
+            import requests
+            import json
+            import base64
+            import mimetypes
+            from django.conf import settings
             
-            # --- OCR LOGIC (OpenRouter AI - Ultra Robust) ---
-            newly_detected_nin = None
-            raw_ai_response = ""
-            debug_msg = "Initialisation..."
-            try:
-                import requests
-                import json
-                import base64
-                import mimetypes
-                from django.conf import settings
-                
-                mime_type, _ = mimetypes.guess_type(path)
-                if not mime_type: mime_type = 'image/jpeg'
-                
-                sensed_file = request.FILES['carte_identite']
-                sensed_file.seek(0)
-                image_bytes = sensed_file.read()
-                base64_image = base64.b64encode(image_bytes).decode('utf-8')
-                
-                # Prepare API call
-                api_key = getattr(settings, 'OPENROUTER_API_KEY', None)
-                
-                if not api_key:
-                    debug_msg = "Clé API manquante sur Railway"
-                    raw_ai_response = "API_KEY_MISSING"
-                else:
+            mime_type, _ = mimetypes.guess_type(path)
+            if not mime_type: 
+                mime_type = 'image/jpeg'
+            
+            sensed_file = request.FILES['carte_identite']
+            sensed_file.seek(0)
+            image_bytes = sensed_file.read()
+            base64_image = base64.b64encode(image_bytes).decode('utf-8')
+            
+            # Prepare API call
+            api_key = getattr(settings, 'OPENROUTER_API_KEY', None)
+            
+            if not api_key:
+                debug_msg = "Clé API manquante sur Railway"
+                raw_ai_response = "API_KEY_MISSING"
+                print("DEBUG OCR: Missing API key")
+            else:
+                try:
                     response = requests.post(
                       url="https://openrouter.ai/api/v1/chat/completions",
                       headers={
@@ -9919,99 +9944,118 @@ def api_student_upload_docs(request):
                             ai_response = response.json()
                         except Exception as e_json:
                             ai_response = None
-                            raw_ai_response = f"JSON parse error: {str(e_json)}"
+                            raw_ai_response = f"JSON parse error: {str(e_json)[:50]}"
                             debug_msg = "Erreur: impossible de parser la réponse JSON de l'API"
                             print(f"DEBUG OCR: JSON parse error: {str(e_json)}")
 
                         # Extract content from model response if available
-                        if ai_response is None:
-                            # Already handled above
-                            pass
-                        else:
+                        if ai_response is not None:
                             try:
                                 content = None
-                                if ai_response:
-                                    # defensive access
-                                    choices = ai_response.get('choices') if isinstance(ai_response, dict) else None
+                                if isinstance(ai_response, dict):
+                                    choices = ai_response.get('choices', [])
                                     if choices and len(choices) > 0:
-                                        msg = choices[0].get('message') if isinstance(choices[0], dict) else None
-                                        if msg and 'content' in msg:
+                                        msg = choices[0].get('message', {})
+                                        if isinstance(msg, dict) and 'content' in msg:
                                             content = msg['content']
 
                                 if content is None:
                                     content = response.text or ""
 
-                                content = content.strip() if isinstance(content, str) else str(content)
-                                raw_ai_response = content[:200]  # keep a reasonable preview for debugging
+                                if not isinstance(content, str):
+                                    content = str(content)
+                                    
+                                content = content.strip()
+                                raw_ai_response = content[:200]
                                 print(f"DEBUG OCR: AI Response content (preview): {raw_ai_response}")
 
                                 import re
-                                # 1. Nettoyage : retirer espaces, points, tirets et sauts de ligne
+                                # 1. Clean content
                                 clean_content = content.replace(" ", "").replace(".", "").replace("-", "").replace("\n", "")
 
-                                # 2. Recherche de blocs de chiffres (entre 8 et 22 chiffres) — acceptons 8+ pour tolérance
+                                # 2. Find digit blocks (8-22 digits)
                                 all_numbers = re.findall(r'\d{8,22}', clean_content)
 
-                                # 3. Si aucun bloc 8+ trouvé, tenter une recherche plus permissive (6+)
+                                # 3. Fallback to 6+ digits if needed
                                 if not all_numbers:
                                     alt_numbers = re.findall(r'\d{6,22}', clean_content)
                                     if alt_numbers:
                                         all_numbers = alt_numbers
                                         debug_msg = f"Fallback: aucun bloc >=8, trouvé blocs >=6 ({len(all_numbers)})"
-
-                                if all_numbers:
-                                    # Prendre le bloc le plus long (probable NIN)
+                                    else:
+                                        debug_msg = f"Échec: Aucun bloc de chiffres pertinent trouvé dans la réponse."
+                                else:
                                     newly_detected_nin = max(all_numbers, key=len)
                                     student.nin = newly_detected_nin
                                     debug_msg = f"Succès: {len(all_numbers)} blocs trouvés. NIN choisi: {newly_detected_nin}"
-                                else:
-                                    debug_msg = f"Échec: Aucun bloc de chiffres pertinent trouvé dans la réponse."
-                            except Exception as e:
-                                debug_msg = f"Erreur lors du traitement de la réponse AI: {str(e)}"
-                                print(f"DEBUG OCR: Exception processing AI response: {str(e)}")
-                                if 'ai_response' in locals() and ai_response:
-                                    raw_ai_response = str(ai_response)[:200]
+
+                            except Exception as e_process:
+                                debug_msg = f"Erreur lors du traitement: {str(e_process)[:100]}"
+                                print(f"DEBUG OCR: Exception processing: {str(e_process)}")
+                                if ai_response:
+                                    raw_ai_response = str(ai_response)[:100]
                     else:
                         debug_msg = f"Erreur API ({response.status_code})"
                         raw_ai_response = f"HTTP {response.status_code}"
-                        print(f"DEBUG OCR: API Error: {response.text}")
+                        try:
+                            raw_ai_response = response.text[:100]
+                        except:
+                            pass
+                        print(f"DEBUG OCR: API Error {response.status_code}")
+                
+                except requests.exceptions.Timeout as e_timeout:
+                    debug_msg = "Timeout: la requête API a mis trop de temps"
+                    raw_ai_response = "TIMEOUT"
+                    print(f"DEBUG OCR: Timeout: {str(e_timeout)}")
+                except requests.exceptions.ConnectionError as e_conn:
+                    debug_msg = "Erreur de connexion à l'API OpenRouter"
+                    raw_ai_response = "CONNECTION_ERROR"
+                    print(f"DEBUG OCR: Connection error: {str(e_conn)}")
+                except Exception as e_api:
+                    debug_msg = f"Erreur API: {str(e_api)[:100]}"
+                    raw_ai_response = f"API_ERROR: {str(e_api)[:50]}"
+                    print(f"DEBUG OCR: API Exception: {str(e_api)}")
 
+        except Exception as e_ocr:
+            debug_msg = f"Erreur OCR système: {str(e_ocr)[:100]}"
+            raw_ai_response = f"OCR_EXCEPTION: {str(e_ocr)[:50]}"
+            print(f"DEBUG OCR: Global OCR Exception: {str(e_ocr)}")
+            traceback.print_exc()
+        
+        # --- END OCR LOGIC ---
 
-            except Exception as e:
-                debug_msg = f"Exception Système OCR: {str(e)}"
-                raw_ai_response = f"EXCEPTION: {str(e)[:100]}"
-                print(f"DEBUG OCR: Global Exception: {str(e)}")
-            # ---------------------------
-
-            # Update verification step
-            if student.verification_step < 1:
-                student.verification_step = 1
-            
-            # Save safely
+        # Update student record
+        if student.verification_step < 1:
+            student.verification_step = 1
+        
+        try:
             student.save()
-            
-            # Persistent update in DB
             if newly_detected_nin:
                 Etudiant.objects.filter(pk=student.id).update(nin=newly_detected_nin)
-            
             student.refresh_from_db()
-            
-            return JsonResponse({
-                'success': True, 
-                'message': 'Analyse terminée', 
-                'nin_detected': newly_detected_nin,
-                'raw_ai_response': raw_ai_response, # TRÈS IMPORTANT : permet de voir ce que l'IA a répondu
-                'debug_info': debug_msg,
-                'student_id': student.id
-            })
-            
-        return JsonResponse({'success': False, 'error': 'Aucun fichier fourni'}, status=400)
+        except Exception as e_db:
+            print(f"DEBUG: Database save error: {str(e_db)}")
+        
+        # Always return success with debug info
+        return JsonResponse({
+            'success': True, 
+            'message': 'Analyse terminée', 
+            'nin_detected': newly_detected_nin,
+            'raw_ai_response': raw_ai_response,
+            'debug_info': debug_msg,
+            'student_id': student.id
+        })
 
     except Exception as e:
-        import traceback
         print(f"DEBUG CRITICAL: System Error in api_student_upload_docs: {str(e)}")
-        print(traceback.format_exc())
-        return JsonResponse({'success': False, 'error': f"Erreur système: {str(e)}"}, status=500)
+        traceback.print_exc()
+        return JsonResponse({
+            'success': False, 
+            'error': f"Erreur système: {str(e)[:100]}", 
+            'debug_info': debug_msg,
+            'raw_ai_response': raw_ai_response,
+            'student_id': student_id
+        }, status=500)
 
 
 def mobile_student_app(request):
