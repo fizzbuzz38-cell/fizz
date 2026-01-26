@@ -9360,6 +9360,7 @@ def api_student_profile(request):
         try:
             etudiant = Etudiant.objects.get(pk=student_id)
             print(f"DEBUG PROFILE: Fetching student {student_id}, found NIN: {etudiant.nin}")
+            print(f"DEBUG PROFILE: carte_identite_photo raw value: {etudiant.carte_identite_photo}")
         except Etudiant.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Étudiant non trouvé'}, status=404)
         
@@ -9370,6 +9371,19 @@ def api_student_profile(request):
                 photo_url = etudiant.photo
             else:
                 photo_url = request.build_absolute_uri(settings.MEDIA_URL + str(etudiant.photo))
+        
+        # Build identity card photo URL - IMPORTANT FIX
+        cni_url = ''
+        if etudiant.carte_identite_photo:
+            cni_str = str(etudiant.carte_identite_photo)
+            if cni_str.startswith('http'):
+                cni_url = cni_str
+            else:
+                # Use MEDIA_URL path directly
+                cni_url = '/media/' + cni_str
+            print(f"DEBUG PROFILE: Built CNI URL: {cni_url}")
+        else:
+            print(f"DEBUG PROFILE: No CNI photo found for student {student_id}")
         
         # Get inscriptions count
         inscriptions_count = Inscription.objects.filter(etudiant=etudiant).count()
@@ -9402,7 +9416,7 @@ def api_student_profile(request):
                 'dernier_diplome': etudiant.dernier_diplome or '',
                 'situation_professionnelle': etudiant.situation_professionnelle or '',
                 'photo': photo_url,
-                'carte_identite_photo': request.build_absolute_uri(settings.MEDIA_URL + str(etudiant.carte_identite_photo)) if etudiant.carte_identite_photo else None,
+                'carte_identite_photo': cni_url if cni_url else None,
                 'nin': etudiant.nin or '',
                 'date_inscription': etudiant.date_inscription.isoformat() if etudiant.date_inscription else None,
                 'inscriptions_count': inscriptions_count,
