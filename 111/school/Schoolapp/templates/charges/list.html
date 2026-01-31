@@ -29,80 +29,52 @@
     .charges-ref{ color:#0ea5a4; font-weight:600; }
     .charges-mode{ color:#334155; }
     .charges-actions { text-align:right; }
-    /* Use the global btn-* utility classes for consistent styling. Keep lightweight helpers for spacing only. */
     .charges-edit-btn{ margin-right:8px; }
+
+    /* RECHERCHE - NOUVEAU */
+    .search-container { margin-bottom:1rem; }
+    .search-input {
+      background:#fff;
+      transition:all .2s cubic-bezier(0.4,0,0.2,1);
+      width:100%; padding:12px 40px 12px 16px; border:1px solid #e5e7eb; 
+      border-radius:12px; font-size:14px; box-shadow:0 2px 8px rgba(0,0,0,0.06);
+    }
+    .search-input:focus {
+      outline:none; border-color:var(--accent-a,#7c3aed);
+      box-shadow:0 0 0 3px rgba(124,58,237,0.1),0 4px 12px rgba(0,0,0,0.08);
+      transform:translateY(-1px);
+    }
+    .search-input::placeholder { color:#9ca3af; }
+    .search-results-count { font-size:12px;color:#6b7280;margin-top:4px; }
+    .search-input.searching { 
+      background-image:linear-gradient(90deg,transparent 30%,rgba(124,58,237,0.1) 50%,transparent 70%); 
+      background-size:200% 100%; animation:pulse-search 1.5s infinite; 
+    }
+    @keyframes pulse-search { 0%,100%{background-position:200% 0} 50%{background-position:-200% 0} }
 
     /* Mobile: stack rows into card-like blocks and show labels via data-label attribute */
     @media (max-width:800px){
-      .charges-container {
-        padding: 12px !important;
-        margin-bottom: 100px !important;
-      }
+      .charges-container { padding: 12px !important; margin-bottom: 100px !important; }
       .charges-table{ min-width:0; margin-bottom: 20px; }
       .charges-table thead{ display:none; }
       .charges-table tbody tr{ 
-        display:block; 
-        margin-bottom:16px; 
-        padding:16px; 
-        position:relative; 
-        overflow:hidden; 
+        display:block; margin-bottom:16px; padding:16px; position:relative; overflow:hidden; 
         animation:cardPop .32s cubic-bezier(.2,.9,.3,1) both;
         border-radius: 16px !important;
         box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
         background: linear-gradient(135deg, rgba(124,58,237,0.03), rgba(6,182,212,0.03)) !important;
         border-left: 4px solid #7c3aed !important;
       }
-      .charges-table tbody tr:hover{ 
-        transform: translateY(-4px) !important; 
-        box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
-      }
-      .charges-table tbody tr td{ 
-        display:flex; 
-        justify-content:space-between; 
-        padding:12px 0; 
-        border:none; 
-        align-items: center;
-      }
-      .charges-table tbody tr td::before{ 
-        content: attr(data-label); 
-        font-weight:700; 
-        color:#6b7280; 
-        margin-right:12px; 
-        display:block; 
-        flex:0 0 35%; 
-        font-size: 0.9rem;
-      }
-      .charges-table tbody tr td .fmt-num{ 
-        text-align:right; 
-        font-weight: 700;
-        color: #059669;
-      }
-      .charges-actions{ 
-        text-align:right; 
-        display:flex; 
-        gap:8px; 
-        justify-content:flex-end; 
-        margin-top: 8px;
-        padding-top: 12px;
-        border-top: 1px solid rgba(0,0,0,0.06);
-      }
-      .charges-top{ 
-        flex-direction:column; 
-        gap:12px; 
-        align-items:stretch; 
-        margin-bottom: 1.5rem;
-      }
-      .charges-top h2 {
-        font-size: 1.5rem !important;
-        margin-bottom: 0.5rem;
-      }
-      .charges-top .btn-primary, .charges-top .btn-secondary{ 
-        width:100%; 
-        padding: 14px 20px !important;
-        font-size: 15px !important;
-        border-radius: 12px !important;
-        margin-bottom: 8px;
-      }
+      .charges-table tbody tr:hover{ transform: translateY(-4px) !important; box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important; }
+      .charges-table tbody tr td{ display:flex; justify-content:space-between; padding:12px 0; border:none; align-items: center; }
+      .charges-table tbody tr td::before{ content: attr(data-label); font-weight:700; color:#6b7280; margin-right:12px; display:block; flex:0 0 35%; font-size: 0.9rem; }
+      .charges-table tbody tr td .fmt-num{ text-align:right; font-weight: 700; color: #059669; }
+      .charges-actions{ text-align:right; display:flex; gap:8px; justify-content:flex-end; margin-top: 8px; padding-top: 12px; border-top: 1px solid rgba(0,0,0,0.06); }
+      .charges-top{ flex-direction:column; gap:12px; align-items:stretch; margin-bottom: 1.5rem; }
+      .charges-top h2 { font-size: 1.5rem !important; margin-bottom: 0.5rem; }
+      .charges-top .btn-primary, .charges-top .btn-secondary{ width:100%; padding: 14px 20px !important; font-size: 15px !important; border-radius: 12px !important; margin-bottom: 8px; }
+      .search-container { max-width:100%; margin-bottom:1.5rem; order:3; }
+      .search-input { font-size:16px; padding:14px 45px 14px 18px; }
       .charges-table tbody td { font-size: 14px; }
       .charges-table tbody tr { margin-bottom: 12px; }
     }
@@ -110,34 +82,15 @@
       .charges-container { padding: 10px !important; }
       .charges-table tbody tr td { padding: 10px 0; }
       .charges-top h2 { font-size: 1.3rem !important; }
-      .modal.card{ 
-        width:100% !important; 
-        max-width:100% !important;
-        margin: 0 !important;
-        border-radius: 0 !important;
-        max-height: 100vh !important;
-        overflow-y: auto !important;
-      }
-      #aiModal{ 
-        align-items:flex-start; 
-        padding:0 !important;
-      }
-      #aiModal .modal.card {
-        border-radius: 20px 20px 0 0 !important;
-        margin-top: auto !important;
-      }
-      
-      /* Stagger row animations */
+      .modal.card{ width:100% !important; max-width:100% !important; margin: 0 !important; border-radius: 0 !important; max-height: 100vh !important; overflow-y: auto !important; }
+      #aiModal{ align-items:flex-start; padding:0 !important; }
+      #aiModal .modal.card { border-radius: 20px 20px 0 0 !important; margin-top: auto !important; }
       .charges-table tbody tr:nth-child(1) { animation-delay: 0.1s; }
       .charges-table tbody tr:nth-child(2) { animation-delay: 0.2s; }
       .charges-table tbody tr:nth-child(3) { animation-delay: 0.3s; }
       .charges-table tbody tr:nth-child(4) { animation-delay: 0.4s; }
       .charges-table tbody tr:nth-child(5) { animation-delay: 0.5s; }
-      
-      /* Touch feedback */
-      .charges-table tbody tr:active {
-        transform: scale(0.98) !important;
-      }
+      .charges-table tbody tr:active { transform: scale(0.98) !important; }
     }
 
     /* Keyframes */
@@ -163,11 +116,34 @@
     .chat-bubble.assistant{ background: linear-gradient(90deg,#fff7ed,#fff1e6); color:#0f172a; }
   </style>
 
-    <div class="charges-top">
-    <h2 class="text-xl font-semibold">Charges</h2>
+  <!-- 🔍 CHARGES-TOP AVEC RECHERCHE -->
+  <div class="charges-top">
+    <div style="display:flex; flex-direction:column; flex:1; gap:8px;">
+      <h2 class="text-xl font-semibold">Charges</h2>
+      
+      <!-- Compteur total -->
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span id="totalCharges" class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+          {{ charges|length }} charge{{ charges|length|pluralize }}
+        </span>
+      </div>
+      
+      <!-- Barre de recherche -->
+      <div class="search-container" style="position:relative;width:100%;max-width:400px;">
+        <input type="text" id="chargesSearch" placeholder="🔍 Rechercher (type, montant, date, référence...)" 
+               class="search-input">
+        <div style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#9ca3af;pointer-events:none;">🔍</div>
+        <div id="searchResultsCount" class="search-results-count"></div>
+      </div>
+    </div>
+
     <div style="display:flex;gap:10px;align-items:center;">
-      <button id="openAiChatBtn" class="btn-secondary px-3 py-2 rounded-lg inline-flex items-center gap-2"><span style="font-size:18px;line-height:1">🧠</span> G intelligence</button>
-      <a href="{% url 'charges_add' %}" class="btn-primary px-3 py-2 rounded-lg inline-flex items-center gap-2"><span style="font-size:18px;line-height:1">＋</span> Ajouter une charge</a>
+      <button id="openAiChatBtn" class="btn-secondary px-3 py-2 rounded-lg inline-flex items-center gap-2">
+        <span style="font-size:18px;line-height:1">🧠</span> G intelligence
+      </button>
+      <a href="{% url 'charges_add' %}" class="btn-primary px-3 py-2 rounded-lg inline-flex items-center gap-2">
+        <span style="font-size:18px;line-height:1">＋</span> Ajouter une charge
+      </a>
     </div>
   </div>
 
@@ -183,7 +159,7 @@
           <div id="ai_chat_history" style="flex:1;overflow:auto;padding:12px;border:1px solid #eef2f7;border-radius:8px;background:#fff;max-height:420px;">
             <!-- messages will be appended here -->
           </div>
-            <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
             <div style="display:flex;gap:8px;align-items:center;">
               <input id="ai_chat_input" placeholder="Écrire un message au bot..." style="flex:1;padding:10px;border-radius:6px;border:1px solid #e9eef3;" />
               <input id="ai_chat_file" type="file" accept="image/*,application/pdf" style="display:none;" multiple />
@@ -230,21 +206,23 @@
         <td data-label="Référence"><span class="charges-ref">{{ c.reference }}</span></td>
         <td data-label="Actions" class="charges-actions">
           <a href="{% url 'charges_edit' c.id %}" class="btn-primary px-3 py-1 rounded">Modifier</a>
-            <form method="post" action="{% url 'charges_delete' c.id %}" style="display:inline" class="delete-charge-form" data-charge-id="{{ c.id }}">
+          <form method="post" action="{% url 'charges_delete' c.id %}" style="display:inline" class="delete-charge-form" data-charge-id="{{ c.id }}">
             {% csrf_token %}
             <button type="submit" class="btn-danger delete-btn icon-btn px-3 py-1 rounded">Supprimer</button>
           </form>
         </td>
       </tr>
       {% empty %}
-  <tr><td colspan="8" class="text-gray-500">Aucune charge trouvée.</td></tr>
+      <tr><td colspan="8" class="text-gray-500">Aucune charge trouvée.</td></tr>
       {% endfor %}
     </tbody>
   </table>
   </div>
+
+  <!-- 🚀 SCRIPT TOUT-EN-UN : AI + Recherche + Formatage + Confirmation + Animations -->
   <script>
-  // AI chatbot modal logic for charges list (chat + optional file)
   (function(){
+    // 1. AI CHATBOT (votre code existant)
     var openBtn = document.getElementById('openAiChatBtn');
     var modal = document.getElementById('aiModal');
     var closeBtn = document.getElementById('aiModalClose');
@@ -277,21 +255,16 @@
       var bubble = document.createElement('div');
       bubble.className = 'chat-bubble ' + (role === 'user' ? 'user' : 'assistant');
       bubble.innerText = text;
-      // wrapper alignment
       inner.style.textAlign = (role === 'user') ? 'right' : 'left';
       inner.appendChild(bubble);
       wrap.appendChild(inner);
       historyDiv.appendChild(wrap);
-      // animate in
       setTimeout(function(){ bubble.classList.add('in'); }, 20);
       historyDiv.scrollTop = historyDiv.scrollHeight;
     }
 
-    function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
     attachBtn.addEventListener('click', function(){ fileInput.click(); });
 
-    // show previews for selected files
     var currentAttachments = [];
     fileInput.addEventListener('change', function(){
       var container = document.getElementById('ai_attachments');
@@ -299,26 +272,18 @@
       currentAttachments = [];
       Array.from(fileInput.files).forEach(function(f, idx){
         var item = document.createElement('div');
-        item.style.border = '1px solid #e6edf3';
-        item.style.padding = '6px';
-        item.style.borderRadius = '6px';
-        item.style.display = 'flex';
-        item.style.alignItems = 'center';
-        item.style.gap = '8px';
-        item.style.minWidth = '120px';
+        Object.assign(item.style, {border:'1px solid #e6edf3', padding:'6px', borderRadius:'6px', display:'flex', alignItems:'center', gap:'8px', minWidth:'120px'});
         var thumb = document.createElement('div');
-        thumb.style.width = '48px'; thumb.style.height = '48px'; thumb.style.flex='0 0 48px'; thumb.style.background='#f3f4f6'; thumb.style.display='flex'; thumb.style.alignItems='center'; thumb.style.justifyContent='center'; thumb.style.overflow='hidden'; thumb.style.borderRadius='4px';
+        Object.assign(thumb.style, {width:'48px', height:'48px', flex:'0 0 48px', background:'#f3f4f6', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', borderRadius:'4px'});
         if(f.type && f.type.indexOf('image')===0){
           var reader = new FileReader();
-          reader.onload = function(e){ var img = document.createElement('img'); img.src = e.target.result; img.style.width='100%'; img.style.height='100%'; img.style.objectFit='cover'; thumb.innerHTML=''; thumb.appendChild(img); };
+          reader.onload = function(e){ var img = document.createElement('img'); img.src = e.target.result; img.style.cssText='width:100%;height:100%;object-fit:cover'; thumb.innerHTML=''; thumb.appendChild(img); };
           reader.readAsDataURL(f);
-        } else {
-          thumb.innerText = 'PDF';
-        }
+        } else { thumb.innerText = 'PDF'; }
         var meta = document.createElement('div');
-        meta.style.flex='1';
-        var name = document.createElement('div'); name.style.fontSize='13px'; name.style.fontWeight='600'; name.innerText = f.name;
-        var status = document.createElement('div'); status.style.fontSize='12px'; status.style.color='#6b7280'; status.innerText = 'Prêt';
+        meta.style.flex = '1';
+        var name = document.createElement('div'); name.style.cssText='font-size:13px;font-weight:600'; name.innerText = f.name;
+        var status = document.createElement('div'); status.style.cssText='font-size:12px;color:#6b7280'; status.innerText = 'Prêt';
         meta.appendChild(name); meta.appendChild(status);
         item.appendChild(thumb); item.appendChild(meta);
         container.appendChild(item);
@@ -330,48 +295,45 @@
       var txt = input.value && input.value.trim();
       var files = Array.from(fileInput.files || []);
       if(!txt && files.length === 0){ alert('Écrire un message ou joindre un fichier.'); return; }
-      // show user message bubble
       if(txt){ appendMessage('user', txt); }
-      if(files.length){
-        files.forEach(function(f){ appendMessage('user', '[Fichier joint: ' + f.name + ']'); });
-      }
+      if(files.length){ files.forEach(function(f){ appendMessage('user', '[Fichier joint: ' + f.name + ']'); }); }
       input.value = '';
-      // prepare form
       var fd = new FormData();
       if(txt) fd.append('message', txt);
       files.forEach(function(f){ fd.append('file', f); });
       sendBtn.disabled = true; sendBtn.textContent = 'Envoi...'; openFormBtn.disabled = true;
-      // set each attachment status to 'Envoi en cours'
       currentAttachments.forEach(function(a){ if(a.statusEl) a.statusEl.innerText = 'Envoi...'; });
-      var headers = {};
-      var csrf = getCSRF(); if(csrf) headers['X-CSRFToken'] = csrf;
-      fetch('{% url "charges_chat_ai" %}', { method: 'POST', body: fd, headers: headers, credentials: 'same-origin' }).then(function(r){ return r.json(); }).then(function(json){
-        sendBtn.disabled = false; sendBtn.textContent = 'Envoyer';
-        // update attachment statuses
-        if(currentAttachments && currentAttachments.length){
-          currentAttachments.forEach(function(a){ try{ a.statusEl.innerText = (json && json.success) ? 'Traitée' : 'Erreur'; }catch(e){} });
-        }
-        if(json && json.success){
-          var reply = json.reply || '';
-          appendMessage('assistant', reply);
-          respTa.value = reply;
-          // enable open form and store structured data
-          window.__ai_structured = json.structured || null;
-          window.__ai_ocr = json.ocr_text || '';
-          if((json.structured && Object.keys(json.structured).length>0) || (reply && reply.trim())){
-            openFormBtn.disabled = false;
+      var headers = {}; var csrf = getCSRF(); if(csrf) headers['X-CSRFToken'] = csrf;
+      fetch('{% url "charges_chat_ai" %}', { method: 'POST', body: fd, headers: headers, credentials: 'same-origin' })
+        .then(function(r){ return r.json(); })
+        .then(function(json){
+          sendBtn.disabled = false; sendBtn.textContent = 'Envoyer';
+          if(currentAttachments && currentAttachments.length){
+            currentAttachments.forEach(function(a){ try{ a.statusEl.innerText = (json && json.success) ? 'Traitée' : 'Erreur'; }catch(e){} });
           }
-          // show OCR preview under assistant
-          if(json.ocr_text){
-            var odiv = document.createElement('div'); odiv.style.fontSize='12px'; odiv.style.color='#6b7280'; odiv.style.marginTop='6px'; odiv.innerText = 'Résumé auto (OCR): ' + json.ocr_text.slice(0,300) + (json.ocr_text.length>300? '...':'');
-            var last = historyDiv.lastChild; if(last) last.appendChild(odiv);
+          if(json && json.success){
+            var reply = json.reply || '';
+            appendMessage('assistant', reply);
+            respTa.value = reply;
+            window.__ai_structured = json.structured || null;
+            window.__ai_ocr = json.ocr_text || '';
+            if((json.structured && Object.keys(json.structured).length>0) || (reply && reply.trim())){
+              openFormBtn.disabled = false;
+            }
+            if(json.ocr_text){
+              var odiv = document.createElement('div'); 
+              odiv.style.cssText='font-size:12px;color:#6b7280;margin-top:6px'; 
+              odiv.innerText = 'Résumé auto (OCR): ' + json.ocr_text.slice(0,300) + (json.ocr_text.length>300? '...':'');
+              var last = historyDiv.lastChild; if(last) last.appendChild(odiv);
+            }
+          } else {
+            appendMessage('assistant', 'Erreur: ' + (json.error || 'aucune réponse'));
           }
-        } else {
-          appendMessage('assistant', 'Erreur: ' + (json.error || 'aucune réponse'));
-        }
-      }).catch(function(err){ sendBtn.disabled = false; sendBtn.textContent = 'Envoyer';
-        if(currentAttachments && currentAttachments.length){ currentAttachments.forEach(function(a){ try{ a.statusEl.innerText = 'Erreur réseau'; }catch(e){} }); }
-        appendMessage('assistant', 'Erreur réseau: ' + err); });
+        }).catch(function(err){
+          sendBtn.disabled = false; sendBtn.textContent = 'Envoyer';
+          if(currentAttachments && currentAttachments.length){ currentAttachments.forEach(function(a){ try{ a.statusEl.innerText = 'Erreur réseau'; }catch(e){} }); }
+          appendMessage('assistant', 'Erreur réseau: ' + err);
+        });
     });
 
     clearBtn.addEventListener('click', function(){
@@ -383,7 +345,6 @@
     openFormBtn.addEventListener('click', function(){
       var url = '{% url "charges_add" %}';
       var params = [];
-      // prefer structured data if available
       var s = window.__ai_structured || null;
       if(s && typeof s === 'object'){
         if(s.type) params.push('ai_type=' + encodeURIComponent(s.type));
@@ -399,129 +360,122 @@
       window.open(url + qp, '_blank');
     });
 
-    // allow sending with Enter
     input.addEventListener('keydown', function(e){ if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendBtn.click(); } });
-  })();
-  </script>
-  <script>
-  // Staggered entrance animation for charges rows
-  (function(){
-    document.addEventListener('DOMContentLoaded', function(){
-      var rows = Array.from(document.querySelectorAll('.charges-table tbody tr'));
-      rows.forEach(function(r, i){
-        setTimeout(function(){ r.classList.add('animate-in'); }, 60 * i);
+
+    // 2. 🔍 RECHERCHE TEMPS RÉEL
+    const searchInput = document.getElementById('chargesSearch');
+    const rows = document.querySelectorAll('.charges-table tbody tr');
+    const countEl = document.getElementById('searchResultsCount');
+    
+    function normalizeText(text) {
+      return text ? text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w\s]/g, '') : '';
+    }
+    
+    function searchCharges(query) {
+      const q = normalizeText(query);
+      let visibleCount = 0;
+      rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        const rowText = Array.from(cells).map(cell => normalizeText(cell.textContent)).join(' ');
+        const isVisible = !q || rowText.includes(q);
+        row.style.display = isVisible ? '' : 'none';
+        row.classList.toggle('search-hidden', !isVisible);
+        if(isVisible) visibleCount++;
       });
+      countEl.textContent = visibleCount === rows.length || !query.trim() ? '' : `${visibleCount} résultat${visibleCount > 1 ? 's' : ''}`;
+    }
+    
+    let searchTimeout;
+    if(searchInput) {
+      searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => searchCharges(this.value), 250);
+        this.classList.add('searching');
+      });
+      searchInput.addEventListener('blur', () => this.classList.remove('searching'));
+      searchInput.addEventListener('keydown', e => {
+        if(e.key === 'Escape') { e.preventDefault(); this.value = ''; searchCharges(''); this.blur(); }
+      });
+      document.addEventListener('keydown', e => {
+        if((e.ctrlKey || e.metaKey) && e.key === 'k') {
+          e.preventDefault(); searchInput.focus(); searchInput.select();
+        }
+      });
+    }
+
+    // 3. 💰 FORMATAGE MONTANTS DA
+    function formatNumber(v) {
+      if(!v) return '—';
+      let s = String(v).trim().replace(/\s+/g, '');
+      let neg = s.startsWith('-'); if(neg) s = s.slice(1);
+      let parts = s.split(/[,.]/);
+      let intPart = parts[0].replace(/[^0-9]/g, '');
+      let fracPart = parts[1]?.replace(/[^0-9]/g, '').replace(/0+$/, '') || '';
+      let formatted = intPart.split('').reverse().join('').match(/.{1,3}/g)?.reverse().join(' ') || intPart;
+      return (neg ? '-' : '') + formatted + (fracPart ? ',' + fracPart : '') + ' DA';
+    }
+    
+    document.querySelectorAll('.fmt-num').forEach(el => {
+      el.textContent = formatNumber(el.dataset.val);
+    });
+
+    // 4. 🗑️ MODAL CONFIRMATION SUPPRESSION
+    function showConfirm(message, callback) {
+      const overlay = document.createElement('div');
+      Object.assign(overlay.style, {
+        position:'fixed', inset:'0', display:'flex', alignItems:'center', justifyContent:'center',
+        zIndex:'99999', background:'rgba(2,6,23,0.4)', padding:'20px', backdropFilter:'blur(4px)'
+      });
+      const card = document.createElement('div');
+      Object.assign(card.style, {
+        background:'white', borderRadius:'12px', padding:'24px', maxWidth:'420px', width:'100%',
+        boxShadow:'0 25px 80px rgba(0,0,0,0.2)'
+      });
+      card.innerHTML = `
+        <h3 style="margin:0 0 12px 0;font-size:18px;font-weight:700;color:#111827;">⚠️ ${message}</h3>
+        <p style="color:#6b7280;margin-bottom:20px;font-size:14px;">Cette action est <strong>irréversible</strong>.</p>
+        <div style="display:flex;gap:12px;justify-content:flex-end;">
+          <button type="button" class="btn-secondary px-4 py-2 rounded-lg hover:bg-gray-100 transition-all">Annuler</button>
+          <button type="button" class="btn-danger px-4 py-2 rounded-lg font-medium hover:shadow-lg transition-all">Supprimer</button>
+        </div>
+      `;
+      overlay.appendChild(card);
+      document.body.appendChild(overlay);
+      const cancelBtn = card.querySelector('.btn-secondary');
+      const deleteBtn = card.querySelector('.btn-danger');
+      cancelBtn.onclick = () => { overlay.remove(); callback(false); };
+      deleteBtn.onclick = () => { overlay.remove(); callback(true); };
+      overlay.onclick = e => e.target === overlay && (overlay.remove(), callback(false));
+      deleteBtn.focus();
+    }
+    
+    document.querySelectorAll('.delete-charge-form').forEach(form => {
+      form.onsubmit = e => {
+        e.preventDefault();
+        const id = form.dataset.chargeId || '';
+        showConfirm(`Supprimer la charge #${id} ?`, ok => ok && form.submit());
+      };
+    });
+
+    // 5. ✨ ANIMATIONS STAGGERED
+    function initAnimations() {
+      rows.forEach((row, i) => setTimeout(() => row.classList.add('animate-in'), 80 * i));
+    }
+    if(document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initAnimations);
+    } else {
+      initAnimations();
+    }
+
+    // 6. 🔄 ÉVÉNEMENT RELOAD
+    window.addEventListener('charges_reloaded', () => {
+      const newRows = document.querySelectorAll('.charges-table tbody tr');
+      Array.from(newRows).forEach(r => rows.push(r));
+      searchCharges(searchInput?.value || '');
+      document.querySelectorAll('.fmt-num').forEach(el => el.textContent = formatNumber(el.dataset.val));
+      initAnimations();
     });
   })();
   </script>
 </div>
-  <script>
-  // Replace inline confirm() with a nicer modal confirmation and harden overlay stacking.
-  (function(){
-    function ensureOverlay(o){
-      o.style.zIndex = 99999;
-      o.style.position = 'fixed';
-      o.style.left = 0; o.style.top = 0; o.style.right = 0; o.style.bottom = 0;
-      // lighter backdrop so table remains visible
-      o.style.background = 'rgba(2,6,23,0.06)';
-      if(o.parentNode !== document.body) document.body.appendChild(o);
-    }
-
-    // Attach to existing overlays (if any)
-    document.querySelectorAll('.modal-overlay').forEach(function(o){ ensureOverlay(o); });
-
-    // Utility to show a confirmation modal. Calls cb(true) if confirmed.
-    function showConfirm(message, cb){
-      // create overlay
-      var overlay = document.createElement('div');
-      overlay.className = 'modal-overlay';
-      overlay.style.position = 'fixed'; overlay.style.inset = '0'; overlay.style.display = 'flex'; overlay.style.alignItems = 'center'; overlay.style.justifyContent = 'center';
-      overlay.style.zIndex = 99999; overlay.style.background = 'rgba(2,6,23,0.06)'; overlay.style.padding = '20px';
-
-      var card = document.createElement('div');
-      card.className = 'modal card';
-      card.style.background = 'var(--bg-card)';
-      card.style.borderRadius = '10px'; card.style.padding = '18px'; card.style.maxWidth = '420px'; card.style.width = '100%'; card.style.boxShadow = '0 28px 80px rgba(2,6,23,0.14)';
-
-      var h = document.createElement('h3'); h.style.margin = '0 0 8px 0'; h.style.fontSize = '16px'; h.style.fontWeight = 700; h.textContent = message;
-      var actions = document.createElement('div'); actions.style.display='flex'; actions.style.justifyContent='flex-end'; actions.style.gap='8px'; actions.style.marginTop='12px';
-
-      var cancelBtn = document.createElement('button'); cancelBtn.type='button'; cancelBtn.className='btn-secondary px-3 py-1 rounded'; cancelBtn.textContent='Annuler';
-      var yesBtn = document.createElement('button'); yesBtn.type='button'; yesBtn.className='btn-danger px-3 py-1 rounded'; yesBtn.textContent='Supprimer';
-
-      actions.appendChild(cancelBtn); actions.appendChild(yesBtn);
-      card.appendChild(h); card.appendChild(actions);
-      overlay.appendChild(card);
-      document.body.appendChild(overlay);
-
-      function cleanup(){ if(overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay); }
-      cancelBtn.addEventListener('click', function(){ cleanup(); cb(false); });
-      overlay.addEventListener('click', function(e){ if(e.target === overlay){ cleanup(); cb(false); } });
-      yesBtn.addEventListener('click', function(){ cleanup(); cb(true); });
-      document.addEventListener('keydown', function escHandler(e){ if(e.key === 'Escape'){ cleanup(); cb(false); document.removeEventListener('keydown', escHandler); } });
-    }
-
-    // intercept delete forms
-    document.querySelectorAll('.delete-charge-form').forEach(function(frm){
-      frm.addEventListener('submit', function(e){
-        e.preventDefault();
-        var id = frm.dataset.chargeId || '';
-        showConfirm('Supprimer la charge #' + id + ' ? Attention, cette action est irréversible.', function(ok){
-          if(ok){
-            // submit the form programmatically
-            frm.submit();
-          }
-        });
-      });
-    });
-
-    // also ensure any modal overlays created elsewhere are appended and visible
-    var mo = document.querySelectorAll('.modal-overlay');
-    mo.forEach(function(o){ ensureOverlay(o); });
-  })();
-  </script>
-  <script>
-  // Format .fmt-num fields: insert space every 3 digits and remove trailing .00 (preserve decimals if present)
-  (function(){
-    function formatNumberRaw(v){
-      if(v === null || v === undefined) return '-';
-      var s = String(v).trim();
-      if(s === '') return '-';
-      var neg = false;
-      if(s[0] === '-'){
-        neg = true; s = s.slice(1);
-      }
-      s = s.replace(/\s+/g, '');
-      var lastComma = s.lastIndexOf(',');
-      var lastDot = s.lastIndexOf('.');
-      var intPart = s; var fracPart = '';
-      if(lastComma > -1 && lastComma > lastDot){
-        intPart = s.slice(0, lastComma); fracPart = s.slice(lastComma+1);
-      } else if(lastDot > -1){
-        intPart = s.slice(0, lastDot); fracPart = s.slice(lastDot+1);
-      }
-      intPart = intPart.replace(/[^0-9]/g, '');
-      fracPart = fracPart.replace(/[^0-9]/g, '');
-      if(intPart === '') intPart = '0';
-      // drop trailing zeros in fractional part
-      fracPart = fracPart.replace(/0+$/,'');
-      // format integer with spaces
-      var outInt = '';
-      for(var i=0;i<intPart.length;i++){
-        var pos = intPart.length - i;
-        outInt += intPart[i];
-        if(pos>1 && pos%3===1) outInt += ' ';
-      }
-      var result = (neg?'-':'') + outInt;
-      if(fracPart && fracPart.length>0){ result += '.' + fracPart; }
-      return result;
-    }
-    document.addEventListener('DOMContentLoaded', function(){
-      document.querySelectorAll('.fmt-num').forEach(function(el){
-        var v = el.getAttribute('data-val');
-        el.textContent = formatNumberRaw(v);
-      });
-    });
-  })();
-  </script>
 {% endblock %}
