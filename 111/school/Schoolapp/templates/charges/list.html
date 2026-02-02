@@ -525,8 +525,10 @@
         <tr>
           <td data-label="ID">#{{ c.id }}</td>
           <td data-label="Type"><span class="charges-type">{{ c.type_charge }}</span></td>
-          <td data-label="Montant"><span class="charges-amount"><span class="fmt-num"
-                data-val="{{ c.montant }}"></span></span></td>
+          <td data-label="Montant"><span class="charges-amount">
+           <span class="fmt-num" data-val="{{ c.montant }}"></span>
+          
+          </span></td>
           <td data-label="Date"><span class="charges-date">{{ c.date_paiement }}</span></td>
           <td data-label="Formation">
             {% if c.formation %}
@@ -739,16 +741,17 @@
       }
 
       // 3. 💰 FORMATAGE MONTANTS DA
-      function formatNumber(v) {
-        if (!v) return '—';
-        let s = String(v).trim().replace(/\s+/g, '');
-        let neg = s.startsWith('-'); if (neg) s = s.slice(1);
-        let parts = s.split(/[,.]/);
-        let intPart = parts[0].replace(/[^0-9]/g, '');
-        let fracPart = parts[1]?.replace(/[^0-9]/g, '').replace(/0+$/, '') || '';
-        let formatted = intPart.split('').reverse().join('').match(/.{1,3}/g)?.reverse().join(' ') || intPart;
-        return (neg ? '-' : '') + formatted + (fracPart ? ',' + fracPart : '') + ' DA';
-      }
+    function formatNumber(v) {
+  if (v === null || v === undefined || v === '') return '—';
+
+  // convertir en nombre propre
+  let num = parseFloat(String(v).replace(',', '.'));
+
+  if (isNaN(num)) return v + ' DA';
+
+  // format algérien propre
+  return num.toLocaleString('fr-FR') + ' DA';
+}
 
       document.querySelectorAll('.fmt-num').forEach(el => {
         el.textContent = formatNumber(el.dataset.val);
