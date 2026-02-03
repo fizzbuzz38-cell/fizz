@@ -73,6 +73,7 @@ urlpatterns = [
   path('api/mobile/charges/', views.api_charges_list, name='api_charges_list'),
   path('api/mobile/charges/stats/', views.api_charges_stats, name='api_charges_stats'),
   path('api/mobile/charges/types/', views.api_charges_types, name='api_charges_types'),
+  path('api/mobile/monthly-trends/', views.api_monthly_trends, name='api_monthly_trends'),
   path('api/mobile/charges/create/', views.api_charge_create, name='api_charge_create'),
   path('api/mobile/charges/<int:pk>/', views.api_charge_detail, name='api_charge_detail'),
   path('api/mobile/charges/<int:pk>/update/', views.api_charge_update, name='api_charge_update'),
