@@ -6821,6 +6821,126 @@ def api_charges_stats(request):
 
 
 @csrf_exempt
+def api_monthly_trends(request):
+    """API endpoint: GET monthly trends for charges vs benefices.
+    
+    Returns combined monthly data for charting charges vs income.
+    """
+    try:
+        from django.db.models.functions import TruncMonth
+        from datetime import timedelta
+        import calendar
+        
+        now = timezone.now()
+        
+        # Get last 12 months of charges
+        charges_monthly = list(
+            Charge.objects.filter(date_paiement__gte=now - timedelta(days=365))
+            .annotate(month=TruncMonth('date_paiement'))
+            .values('month')
+            .annotate(total=Sum('montant'), count=Count('id'))
+            .order_by('month')
+        )
+        
+        # Get last 12 months of paiements (revenue/benefices)
+        paiements_monthly = list(
+            Paiement.objects.filter(date_paiement__gte=now - timedelta(days=365))
+            .annotate(month=TruncMonth('date_paiement'))
+            .values('month')
+            .annotate(total=Sum('montant'), count=Count('id'))
+            .order_by('month')
+        )
+        
+        # Get school versements monthly
+        versements_monthly = []
+        try:
+            versements_monthly = list(
+                SchoolVersement.objects.filter(date_versement__gte=now - timedelta(days=365))
+                .annotate(month=TruncMonth('date_versement'))
+                .values('month')
+                .annotate(total=Sum('montant'), count=Count('id'))
+                .order_by('month')
+            )
+        except:
+            pass
+        
+        # Combine into a monthly map
+        monthly_data = {}
+        
+        # Process charges
+        for item in charges_monthly:
+            if item.get('month'):
+                month_key = item['month'].strftime('%Y-%m')
+                month_num = item['month'].month
+                if month_key not in monthly_data:
+                    monthly_data[month_key] = {
+                        'month': month_key,
+                        'month_name': calendar.month_abbr[month_num],
+                        'charges': 0,
+                        'benefices': 0,
+                        'charges_count': 0,
+                        'benefices_count': 0
+                    }
+                monthly_data[month_key]['charges'] = float(item['total'] or 0)
+                monthly_data[month_key]['charges_count'] = item['count'] or 0
+        
+        # Process paiements
+        for item in paiements_monthly:
+            if item.get('month'):
+                month_key = item['month'].strftime('%Y-%m')
+                month_num = item['month'].month
+                if month_key not in monthly_data:
+                    monthly_data[month_key] = {
+                        'month': month_key,
+                        'month_name': calendar.month_abbr[month_num],
+                        'charges': 0,
+                        'benefices': 0,
+                        'charges_count': 0,
+                        'benefices_count': 0
+                    }
+                monthly_data[month_key]['benefices'] += float(item['total'] or 0)
+                monthly_data[month_key]['benefices_count'] += item['count'] or 0
+        
+        # Process versements (add to benefices)
+        for item in versements_monthly:
+            if item.get('month'):
+                month_key = item['month'].strftime('%Y-%m')
+                month_num = item['month'].month
+                if month_key not in monthly_data:
+                    monthly_data[month_key] = {
+                        'month': month_key,
+                        'month_name': calendar.month_abbr[month_num],
+                        'charges': 0,
+                        'benefices': 0,
+                        'charges_count': 0,
+                        'benefices_count': 0
+                    }
+                monthly_data[month_key]['benefices'] += float(item['total'] or 0)
+                monthly_data[month_key]['benefices_count'] += item['count'] or 0
+        
+        # Sort by month and convert to list
+        trends = sorted(monthly_data.values(), key=lambda x: x['month'])
+        
+        # Calculate totals
+        total_charges = sum(t['charges'] for t in trends)
+        total_benefices = sum(t['benefices'] for t in trends)
+        
+        return JsonResponse({
+            'success': True,
+            'trends': trends,
+            'totals': {
+                'charges': total_charges,
+                'benefices': total_benefices,
+                'net': total_benefices - total_charges
+            }
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@csrf_exempt
 def api_charges_types(request):
     """API endpoint: GET available charge types.
     # Force redeploy update categories
