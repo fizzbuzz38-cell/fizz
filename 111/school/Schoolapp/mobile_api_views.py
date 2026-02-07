@@ -267,3 +267,7 @@ def api_mobile_student_profile_update(request):
         })
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+# Aliases for urls.py compatibility
+api_mobile_student_formations_list = api_mobile_student_formations
+api_mobile_student_payments_list = api_mobile_student_payments
