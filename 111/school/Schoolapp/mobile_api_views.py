@@ -157,46 +157,77 @@ def api_mobile_student_formations(request):
     try:
         student_id = request.GET.get('student_id')
         if not student_id:
+            # If no student ID provided, return public formations (or error depending on requirements)
+            # For now, let's require student ID to check enrollment status
             return JsonResponse({'success': False, 'message': 'ID requis'}, status=400)
             
         student = get_object_or_404(Etudiant, id=student_id)
+        
+        # Get all inscriptions for this student to check enrollment status
         inscriptions = Inscription.objects.filter(etudiant=student).select_related('formation')
+        inscription_map = {ins.formation.id: ins for ins in inscriptions if ins.formation}
+        
+        # Get all payments for this student
+        payments = Paiement.objects.filter(etudiant=student)
+        
+        # Calculate payments per formation
+        payments_by_formation = {}
+        for p in payments:
+            if p.formation:
+                fid = p.formation.id
+                if fid not in payments_by_formation:
+                    payments_by_formation[fid] = 0
+                payments_by_formation[fid] += _to_float(p.montant)
+        
+        # Get ALL formations
+        all_formations = Formation.objects.all()
         
         formations_list = []
-        for ins in inscriptions:
-            formation = ins.formation
-            if not formation:
-                continue
+        for formation in all_formations:
+            # Check if enrolled
+            is_enrolled = formation.id in inscription_map
+            inscription = inscription_map.get(formation.id)
             
-            # Get price from inscription or formation
-            formation_price = _get_inscription_price(ins)
+            # Get price
+            if is_enrolled and inscription:
+                formation_price = _get_inscription_price(inscription)
+                statut = inscription.statut or 'inscrit'
+                progress = _to_float(inscription.progress_percent or 0)
+            else:
+                # Default public price
+                formation_price = _to_float(formation.prix_etudiant or 0)
+                statut = 'non_inscrit'
+                progress = 0
             
-            # Get photo URL - formation.photo is a CharField, not ImageField
+            # Get photo URL
             photo_url = formation.photo if formation.photo else None
             
             # Get module count
             modules_count = Module.objects.filter(formation=formation).count()
             
-            # Get progress from inscription
-            progress = _to_float(ins.progress_percent or 0)
+            # Calculate payment status
+            paid_amount = payments_by_formation.get(formation.id, 0)
+            remaining = max(0, formation_price - paid_amount)
+            payment_progress = (paid_amount / formation_price * 100) if formation_price > 0 else 0
             
             formations_list.append({
                 'id': formation.id,
                 'nom': formation.nom,
                 'description': formation.contenu or '',
-                'date_debut': None,  # Formation doesn't have date_debut
-                'date_fin': None,    # Formation doesn't have date_fin
+                'date_debut': None,
+                'date_fin': None,
                 'prix': formation_price,
                 'photo': photo_url,
-                'categorie': formation.categorie or formation.branche or '',  # categorie is a string
-                'statut': ins.statut or 'inscrit',
+                'categorie': formation.categorie or formation.branche or '',
+                'statut': statut,
                 'progress_percent': progress,
                 'modules_count': modules_count,
-                'paid': 0,  # Would need to calculate per-formation payments
-                'remaining': formation_price,
-                'payment_progress': 0,
+                'paid': paid_amount,
+                'remaining': remaining,
+                'payment_progress': payment_progress,
                 'instructor': None,
-                'duree': formation.duree or ''  # duree is a string like "6 mois"
+                'duree': formation.duree or '',
+                'is_enrolled': is_enrolled
             })
             
         return JsonResponse({
