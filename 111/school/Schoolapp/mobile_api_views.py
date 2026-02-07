@@ -204,6 +204,17 @@ def api_mobile_student_payments(request):
         student = get_object_or_404(Etudiant, id=student_id)
         payments = Paiement.objects.filter(etudiant=student).order_by('-date_paiement')
         
+        # Calculate total due from inscriptions
+        inscriptions = Inscription.objects.filter(etudiant=student)
+        total_due = 0
+        for ins in inscriptions:
+            price = getattr(ins, 'prix_formation', None) or (getattr(ins.formation, 'prix', 0) if ins.formation else 0) or 0
+            total_due += price
+        
+        total_paid = payments.aggregate(Sum('montant'))['montant__sum'] or 0
+        remaining = total_due - total_paid
+        payment_progress = (total_paid / total_due * 100) if total_due > 0 else 0
+        
         payments_list = []
         for p in payments:
             formation_nom = None
@@ -225,7 +236,10 @@ def api_mobile_student_payments(request):
             'success': True,
             'payments': payments_list,
             'summary': {
-                'total_paid': float(payments.aggregate(Sum('montant'))['montant__sum'] or 0),
+                'total_due': float(total_due),
+                'total_paid': float(total_paid),
+                'remaining': float(remaining),
+                'payment_progress': float(payment_progress),
                 'next_payment_date': None,
                 'next_payment_amount': 0
             }
