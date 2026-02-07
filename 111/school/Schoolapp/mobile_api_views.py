@@ -298,6 +298,140 @@ def api_mobile_student_profile_update(request):
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
+@csrf_exempt
+def api_mobile_scan_id_card(request):
+    """
+    Scan an ID card image using AI (OpenRouter) and extract information.
+    Uses OPENROUTER_API_KEY from Railway environment variables.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'POST requis'}, status=405)
+    
+    try:
+        import base64
+        import requests
+        from django.conf import settings
+        import os
+        import re
+        
+        # Get the image from request
+        if request.content_type and 'multipart' in request.content_type:
+            # Handle multipart form data
+            image_file = request.FILES.get('image')
+            if not image_file:
+                return JsonResponse({'success': False, 'message': 'Image requise'}, status=400)
+            image_data = image_file.read()
+        else:
+            # Handle JSON with base64 image
+            data = json.loads(request.body)
+            image_base64 = data.get('image')
+            if not image_base64:
+                return JsonResponse({'success': False, 'message': 'Image requise'}, status=400)
+            # Remove data URL prefix if present
+            if ',' in image_base64:
+                image_base64 = image_base64.split(',')[1]
+            image_data = base64.b64decode(image_base64)
+        
+        # Encode to base64 for API
+        base64_image = base64.b64encode(image_data).decode('utf-8')
+        
+        # Get API key from environment
+        api_key = os.environ.get('OPENROUTER_API_KEY') or getattr(settings, 'OPENROUTER_API_KEY', '')
+        
+        if not api_key:
+            return JsonResponse({
+                'success': False, 
+                'message': 'OPENROUTER_API_KEY non configurée sur le serveur'
+            }, status=500)
+        
+        # Call OpenRouter API
+        api_url = 'https://openrouter.ai/api/v1/chat/completions'
+        model = 'nvidia/nemotron-nano-12b-v2-vl:free'
+        
+        prompt = '''Analyse cette carte d'identité algérienne et extrait les informations suivantes au format JSON exact:
+{
+  "nin": "numéro d'identification nationale (NIN)",
+  "nom": "nom de famille",
+  "prenom": "prénom",
+  "dateNaissance": "date de naissance au format DD/MM/YYYY",
+  "lieuNaissance": "lieu de naissance"
+}
+
+Réponds UNIQUEMENT avec le JSON, sans texte additionnel. Si une information n'est pas visible, utilise une chaîne vide "".'''
+        
+        response = requests.post(
+            api_url,
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json',
+            },
+            json={
+                'model': model,
+                'messages': [
+                    {
+                        'role': 'user',
+                        'content': [
+                            {'type': 'text', 'text': prompt},
+                            {
+                                'type': 'image_url',
+                                'image_url': {
+                                    'url': f'data:image/jpeg;base64,{base64_image}'
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            timeout=60
+        )
+        
+        if response.status_code != 200:
+            return JsonResponse({
+                'success': False,
+                'message': f'Erreur API: {response.status_code}'
+            }, status=500)
+        
+        # Parse response
+        result = response.json()
+        content = result['choices'][0]['message']['content']
+        
+        # Extract JSON from response (might be wrapped in markdown)
+        json_content = content.strip()
+        if json_content.startswith('```json'):
+            json_content = json_content[7:]
+        elif json_content.startswith('```'):
+            json_content = json_content[3:]
+        if json_content.endswith('```'):
+            json_content = json_content[:-3]
+        json_content = json_content.strip()
+        
+        # Parse extracted data
+        extracted = json.loads(json_content)
+        
+        return JsonResponse({
+            'success': True,
+            'data': {
+                'nin': extracted.get('nin', ''),
+                'nom': extracted.get('nom', ''),
+                'prenom': extracted.get('prenom', ''),
+                'dateNaissance': extracted.get('dateNaissance', ''),
+                'lieuNaissance': extracted.get('lieuNaissance', ''),
+            }
+        })
+        
+    except json.JSONDecodeError as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur parsing JSON: {str(e)}'
+        }, status=500)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur: {str(e)}'
+        }, status=500)
+
 # Aliases for urls.py compatibility
 api_mobile_student_formations_list = api_mobile_student_formations
 api_mobile_student_payments_list = api_mobile_student_payments
