@@ -379,19 +379,23 @@ def api_mobile_scan_id_card(request):
         
         # Call OpenRouter API
         # Call OpenRouter API
+        # Call OpenRouter API
         api_url = 'https://openrouter.ai/api/v1/chat/completions'
-        # Revert to a model known to work with free tier, as Gemini Flash preview might be unstable or region-locked
-        model = 'nvidia/nemotron-nano-12b-v2-vl:free'
         
-        prompt = '''Analyse cette carte d'identité. Extrais ces infos en JSON strict:
+        # Test avec Google Gemma 3 27B (multimodal, free)
+        model = 'google/gemma-3-27b-it:free'
+        
+        prompt = '''Analyse cette image de carte d'identité.
+Extrais UNIQUEMENT les champs en ARABE suivants au format JSON. Si tu vois du français, prends l'équivalent ARABE à côté.
+
+1. nom (اللقب)
+2. prenom (الاسم)
+
+JSON attendu :
 {
-  "nin": "numéro long composite (18 chiffres) ou numéro court",
-  "nom": "nom de famille (français ou arabe)",
-  "prenom": "prénom (français ou arabe)",
-  "dateNaissance": "D.D.M.M.YYYY ou DD/MM/YYYY",
-  "lieuNaissance": "lieu de naissance"
+  "nom": ".....", 
+  "prenom": "....."
 }
-Si illisible, met "".
 '''
         
         response = requests.post(
