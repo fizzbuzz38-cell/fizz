@@ -385,16 +385,18 @@ def api_mobile_scan_id_card(request):
         # Test avec Google Gemma 3 27B (multimodal, free)
         model = 'google/gemma-3-27b-it:free'
         
-        prompt = '''Analyse cette image de carte d'identité.
-Extrais UNIQUEMENT les champs en ARABE suivants au format JSON. Si tu vois du français, prends l'équivalent ARABE à côté.
+        prompt = '''Analyse cette carte d'identité biométrique algérienne.
+Extrais UNIQUEMENT les champs en ARABE suivants au format JSON.
 
-1. nom (اللقب)
-2. prenom (الاسم)
+1. Nom (اللقب) : Cherche le libellé "اللقب" au centre/droite de la carte. Prends le nom écrit à côté. ATTENTION : Ne confonds PAS avec le titre "الجمهورية..." tout en haut.
+2. Prénom (الاسم) : Cherche le libellé "الاسم" et prends le prénom à côté.
+3. Lieu de Naissance (مكان الميلاد) : Cherche le libellé "مكان الميلاد" situé en bas de la carte et prends le lieu écrit à côté.
 
 JSON attendu :
 {
-  "nom": ".....", 
-  "prenom": "....."
+  "nom": "...", 
+  "prenom": "...",
+  "lieuNaissance": "..."
 }
 '''
         
