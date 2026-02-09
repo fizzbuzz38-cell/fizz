@@ -388,9 +388,11 @@ def api_mobile_scan_id_card(request):
         prompt = '''Analyse cette carte d'identité biométrique algérienne.
 Extrais UNIQUEMENT les champs en ARABE suivants au format JSON.
 
-1. Nom (اللقب) : Cherche le libellé "اللقب" au centre/droite de la carte. Prends le nom écrit à côté. ATTENTION : Ne confonds PAS avec le titre "الجمهورية..." tout en haut.
-2. Prénom (الاسم) : Cherche le libellé "الاسم" et prends le prénom à côté.
-3. Lieu de Naissance (مكان الميلاد) : Cherche le libellé "مكان الميلاد" situé en bas de la carte et prends le lieu écrit à côté.
+1. Nom (اللقب) : Cherche le mot "اللقب" situé AU MILIEU à droite (sous le long numéro composite).
+   IMPORTANT : Ne PRENDS PAS "سلطة الاصدار" ou le texte "سيدي امحمد" qui est en haut à droite. C'est l'autorité, pas le nom.
+   Le "Nom" est juste à côté du mot "اللقب".
+2. Prénom (الاسم) : Cherche le mot "الاسم" (situé sous le Nom) et prends le prénom à côté.
+3. Lieu de Naissance (مكان الميلاد) : Cherche le mot "مكان الميلاد" tout en bas de la carte et prends le lieu écrit à côté.
 
 JSON attendu :
 {
