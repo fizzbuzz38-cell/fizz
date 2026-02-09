@@ -308,6 +308,8 @@ def api_mobile_student_profile_update(request):
             
         student = get_object_or_404(Etudiant, id=student_id)
         
+        if 'nom' in data: student.nom = data['nom']
+        if 'prenom' in data: student.prenom = data['prenom']
         if 'email' in data: student.email = data['email']
         if 'telephone' in data: student.telephone = data['telephone']
         if 'adresse' in data: student.adresse = data['adresse']
@@ -379,16 +381,24 @@ def api_mobile_scan_id_card(request):
         api_url = 'https://openrouter.ai/api/v1/chat/completions'
         model = 'nvidia/nemotron-nano-12b-v2-vl:free'
         
-        prompt = '''Analyse cette carte d'identité algérienne et extrait les informations suivantes au format JSON exact:
+        prompt = '''Analyse cette carte d'identité algérienne (biométrique) et extrait les informations suivantes au format JSON exact.
+Cherche les champs en Français et en Arabe:
+- NIN (Numéro d'Identification Nationale / رقم التعريف الوطني)
+- Nom (Surname / اللقب)
+- Prénom (First Name / الاسم)
+- Date de Naissance (Date of Birth / تاريخ الميلاد) capture au format DD/MM/YYYY
+- Lieu de Naissance (Place of Birth / مكان الميلاد)
+
+JSON format:
 {
-  "nin": "numéro d'identification nationale (NIN)",
-  "nom": "nom de famille",
-  "prenom": "prénom",
-  "dateNaissance": "date de naissance au format DD/MM/YYYY",
-  "lieuNaissance": "lieu de naissance"
+  "nin": "numéro...",
+  "nom": "nom...",
+  "prenom": "prénom...",
+  "dateNaissance": "DD/MM/YYYY",
+  "lieuNaissance": "lieu..."
 }
 
-Réponds UNIQUEMENT avec le JSON, sans texte additionnel. Si une information n'est pas visible, utilise une chaîne vide "".'''
+Réponds UNIQUEMENT avec le JSON valide, sans texte additionnel. Si une information n'est pas visible, utilise une chaîne vide "".'''
         
         response = requests.post(
             api_url,
