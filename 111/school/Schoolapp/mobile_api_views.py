@@ -378,35 +378,28 @@ def api_mobile_scan_id_card(request):
             }, status=500)
         
         # Call OpenRouter API
+        # Call OpenRouter API
         api_url = 'https://openrouter.ai/api/v1/chat/completions'
-        # Utilisation d'un modèle plus performant pour l'OCR (Gemini Flash 2.0 Lite via OpenRouter)
-        model = 'google/gemini-2.0-flash-lite-preview-02-05:free'
+        # Revert to a model known to work with free tier, as Gemini Flash preview might be unstable or region-locked
+        model = 'nvidia/nemotron-nano-12b-v2-vl:free'
         
-        prompt = '''Tu es un expert en OCR de documents officiels. Analyse cette image de carte d'identité biométrique algérienne.
-Extrais STRICTEMENT le texte visible correspondant aux champs ci-dessous. NE N'INVENTE RIEN (pas d'hallucinations). Si un champ est illisible, laisse vide.
-
-Repère les champs grâce aux libellés arabes/français imprimés sur la carte :
-1. NIN (Numéro d'Identification National) : Long numéro (souvent 18 chiffres). Si introuvable, prends le numéro court en haut.
-2. Nom (اللقب / Surname) : Le texte écrit en gros à côté/sous "اللقب". Copie exact du texte (Arabe ou Latin). Priorise l'écriture LATINE si visible, sinon ARABE.
-3. Prénom (الاسم / Given Name) : Le texte écrit à côté/sous "الاسم". Priorise l'écriture LATINE si visible, sinon ARABE.
-4. Date de Naissance (تاريخ الميلاد / Date of Birth) : Cherche une date au format DD/MM/YYYY (ex: 22.06.1984).
-5. Lieu de Naissance (مكان الميلاد / Place of Birth) : Le texte à côté de la date.
-
-Format de sortie JSON attendu :
+        prompt = '''Analyse cette carte d'identité. Extrais ces infos en JSON strict:
 {
-  "nin": "valeur",
-  "nom": "valeur",
-  "prenom": "valeur",
-  "dateNaissance": "DD/MM/YYYY",
-  "lieuNaissance": "valeur"
-}'''
+  "nin": "numéro long composite (18 chiffres) ou numéro court",
+  "nom": "nom de famille (français ou arabe)",
+  "prenom": "prénom (français ou arabe)",
+  "dateNaissance": "D.D.M.M.YYYY ou DD/MM/YYYY",
+  "lieuNaissance": "lieu de naissance"
+}
+Si illisible, met "".
+'''
         
         response = requests.post(
             api_url,
             headers={
                 'Authorization': f'Bearer {api_key}',
                 'Content-Type': 'application/json',
-                'HTTP-Referer': 'https://github.com/fizzbuzz38-cell/fizz', # Required by OpenRouter for free tier
+                'HTTP-Referer': 'https://github.com/fizzbuzz38-cell/fizz',
                 'X-Title': 'StudentApp'
             },
             json={
