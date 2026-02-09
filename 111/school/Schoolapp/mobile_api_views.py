@@ -379,32 +379,35 @@ def api_mobile_scan_id_card(request):
         
         # Call OpenRouter API
         api_url = 'https://openrouter.ai/api/v1/chat/completions'
-        model = 'nvidia/nemotron-nano-12b-v2-vl:free'
+        # Utilisation d'un modèle plus performant pour l'OCR (Gemini Flash 2.0 Lite via OpenRouter)
+        model = 'google/gemini-2.0-flash-lite-preview-02-05:free'
         
-        prompt = '''Analyse cette carte d'identité algérienne (biométrique) et extrait les informations suivantes au format JSON exact.
-Cherche les champs en Français et en Arabe:
-- NIN (Numéro d'Identification Nationale / رقم التعريف الوطني)
-- Nom (Surname / اللقب)
-- Prénom (First Name / الاسم)
-- Date de Naissance (Date of Birth / تاريخ الميلاد) capture au format DD/MM/YYYY
-- Lieu de Naissance (Place of Birth / مكان الميلاد)
+        prompt = '''Tu es un expert en OCR de documents officiels. Analyse cette image de carte d'identité biométrique algérienne.
+Extrais STRICTEMENT le texte visible correspondant aux champs ci-dessous. NE N'INVENTE RIEN (pas d'hallucinations). Si un champ est illisible, laisse vide.
 
-JSON format:
+Repère les champs grâce aux libellés arabes/français imprimés sur la carte :
+1. NIN (Numéro d'Identification National) : Long numéro (souvent 18 chiffres). Si introuvable, prends le numéro court en haut.
+2. Nom (اللقب / Surname) : Le texte écrit en gros à côté/sous "اللقب". Copie exact du texte (Arabe ou Latin). Priorise l'écriture LATINE si visible, sinon ARABE.
+3. Prénom (الاسم / Given Name) : Le texte écrit à côté/sous "الاسم". Priorise l'écriture LATINE si visible, sinon ARABE.
+4. Date de Naissance (تاريخ الميلاد / Date of Birth) : Cherche une date au format DD/MM/YYYY (ex: 22.06.1984).
+5. Lieu de Naissance (مكان الميلاد / Place of Birth) : Le texte à côté de la date.
+
+Format de sortie JSON attendu :
 {
-  "nin": "numéro...",
-  "nom": "nom...",
-  "prenom": "prénom...",
+  "nin": "valeur",
+  "nom": "valeur",
+  "prenom": "valeur",
   "dateNaissance": "DD/MM/YYYY",
-  "lieuNaissance": "lieu..."
-}
-
-Réponds UNIQUEMENT avec le JSON valide, sans texte additionnel. Si une information n'est pas visible, utilise une chaîne vide "".'''
+  "lieuNaissance": "valeur"
+}'''
         
         response = requests.post(
             api_url,
             headers={
                 'Authorization': f'Bearer {api_key}',
                 'Content-Type': 'application/json',
+                'HTTP-Referer': 'https://github.com/fizzbuzz38-cell/fizz', # Required by OpenRouter for free tier
+                'X-Title': 'StudentApp'
             },
             json={
                 'model': model,
