@@ -382,19 +382,21 @@ def api_mobile_scan_id_card(request):
         # Call OpenRouter API
         api_url = 'https://openrouter.ai/api/v1/chat/completions'
         
-        # Test avec Google Gemma 3 27B (multimodal, free)
-        model = 'google/gemma-3-27b-it:free'
+        # Models to try in order of preference (using robust free tier models)
+        models_to_try = [
+            'google/gemini-2.0-pro-exp-02-05:free',
+            'google/gemini-2.0-flash-lite-preview-02-05:free',
+            'google/gemini-2.0-flash-exp:free',
+        ]
         
         prompt = '''Analyse cette carte d'identité biométrique algérienne.
-Extrais UNIQUEMENT les champs en ARABE suivants au format JSON.
+Extrais UNIQUEMENT les champs en ARABE suivants au format JSON strict.
 
-1. Nom (اللقب) : Cherche le mot "اللقب" situé AU MILIEU à droite (sous le long numéro composite).
-   IMPORTANT : Ne PRENDS PAS "سلطة الاصدار" ou le texte "سيدي امحمد" qui est en haut à droite. C'est l'autorité, pas le nom.
-   Le "Nom" est juste à côté du mot "اللقب".
-2. Prénom (الاسم) : Cherche le mot "الاسم" (situé sous le Nom) et prends le prénom à côté.
-3. Lieu de Naissance (مكان الميلاد) : Cherche le mot "مكان الميلاد" tout en bas de la carte et prends le lieu écrit à côté.
+1. Nom (اللقب) : Situé à droite, sous le numéro d'identité.
+2. Prénom (الاسم) : Situé sous le Nom.
+3. Lieu de Naissance (مكان الميلاد) : Situé en bas à droite.
 
-JSON attendu :
+JSON attendu (sans markdown, sans texte avant/après) :
 {
   "nom": "...", 
   "prenom": "...",
@@ -402,33 +404,63 @@ JSON attendu :
 }
 '''
         
-        response = requests.post(
-            api_url,
-            headers={
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json',
-                'HTTP-Referer': 'https://github.com/fizzbuzz38-cell/fizz',
-                'X-Title': 'StudentApp'
-            },
-            json={
-                'model': model,
-                'messages': [
-                    {
-                        'role': 'user',
-                        'content': [
-                            {'type': 'text', 'text': prompt},
+        last_error = None
+        current_response = None
+        import time
+        
+        for model in models_to_try:
+            try:
+                response = requests.post(
+                    api_url,
+                    headers={
+                        'Authorization': f'Bearer {api_key}',
+                        'Content-Type': 'application/json',
+                        'HTTP-Referer': 'https://github.com/fizzbuzz38-cell/fizz',
+                        'X-Title': 'StudentApp'
+                    },
+                    json={
+                        'model': model,
+                        'messages': [
                             {
-                                'type': 'image_url',
-                                'image_url': {
-                                    'url': f'data:image/jpeg;base64,{base64_image}'
-                                }
+                                'role': 'user',
+                                'content': [
+                                    {'type': 'text', 'text': prompt},
+                                    {
+                                        'type': 'image_url',
+                                        'image_url': {
+                                            'url': f'data:image/jpeg;base64,{base64_image}'
+                                        }
+                                    }
+                                ]
                             }
                         ]
-                    }
-                ]
-            },
-            timeout=60
-        )
+                    },
+                    timeout=60
+                )
+                
+                if response.status_code == 200:
+                    current_response = response
+                    break # Success!
+                elif response.status_code == 429:
+                    last_error = f"Rate limit (429) on {model}"
+                    time.sleep(2) # Wait a bit before trying next model
+                    continue # Try next model
+                else:
+                    last_error = f"Error {response.status_code} on {model}: {response.text}"
+                    continue
+                    
+            except Exception as e:
+                last_error = str(e)
+                continue
+        
+        # If no successful response after trying all models
+        if not current_response:
+             # Fallback mock data if everything fails (for demo purposes)
+             # return JsonResponse({'success': False, 'message': f'IA indisponible: {last_error}'}, status=500)
+             # Use the last error code or 500
+             return JsonResponse({'success': False, 'message': f'Toutes les tentatives ont échoué. Derniere erreur: {last_error}'}, status=500)
+             
+        response = current_response
         
         if response.status_code != 200:
             return JsonResponse({
