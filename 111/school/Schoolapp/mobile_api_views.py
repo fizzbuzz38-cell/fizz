@@ -382,99 +382,82 @@ def api_mobile_scan_id_card(request):
         # Call OpenRouter API
         api_url = 'https://openrouter.ai/api/v1/chat/completions'
         
-        # Test avec Google Gemma 3 27B (multimodal, free)
-        model = 'google/gemma-3-27b-it:free'
-        
-        prompt = '''Analyse cette carte d'identité biométrique algérienne.
-Extrais UNIQUEMENT les champs en ARABE suivants au format JSON.
-
-1. Nom (اللقب) : Cherche le mot "اللقب" situé AU MILIEU à droite (sous le long numéro composite).
-   IMPORTANT : Ne PRENDS PAS "سلطة الاصدار" ou le texte "سيدي امحمد" qui est en haut à droite. C'est l'autorité, pas le nom.
-   Le "Nom" est juste à côté du mot "اللقب".
-2. Prénom (الاسم) : Cherche le mot "الاسم" (situé sous le Nom) et prends le prénom à côté.
-3. Date de Naissance (تاريخ الميلاد) : Cherche le mot "تاريخ الميلاد" et prends la date au format YYYY-MM-DD.
-4. Lieu de Naissance (مكان الميلاد) : Cherche le mot "مكان الميلاد" tout en bas de la carte et prends le lieu écrit à côté.
-5. NIN (رقم التعريف الوطني) : Le long numéro de 18 chiffres situé en haut de la carte.
-
-JSON attendu :
-{
-  "nin": "...",
-  "nom": "...", 
-  "prenom": "...",
-  "dateNaissance": "YYYY-MM-DD",
-  "lieuNaissance": "..."
-}
-'''
+        # Liste des modèles gratuits à tester dans l'ordre de préférence
+        models_to_try = [
+            'google/gemini-2.0-flash-lite-preview-02-05:free',
+            'google/gemini-2.0-flash-exp:free',
+            'google/gemma-3-27b-it:free',
+        ]
         
         import time
-        max_retries = 5
-        retry_delay = 2  # base delay in seconds
+        max_retries_per_model = 2
         
-        print(f"[SCAN-DEBUG] Starting ID scan with model: {model}")
-        print(f"[SCAN-DEBUG] Image size: {len(base64_image)} chars")
+        last_error = "Aucun modèle n'a pu répondre"
+        final_response = None
         
-        response = None
-        for attempt in range(max_retries):
-            try:
-                print(f"[SCAN-DEBUG] Attempt {attempt + 1}/{max_retries}...")
-                response = requests.post(
-                    api_url,
-                    headers={
-                        'Authorization': f'Bearer {api_key}',
-                        'Content-Type': 'application/json',
-                        'HTTP-Referer': 'https://github.com/fizzbuzz38-cell/fizz',
-                        'X-Title': 'StudentApp'
-                    },
-                    json={
-                        'model': model,
-                        'messages': [
-                            {
-                                'role': 'user',
-                                'content': [
-                                    {'type': 'text', 'text': prompt},
-                                    {
-                                        'type': 'image_url',
-                                        'image_url': {
-                                            'url': f'data:image/jpeg;base64,{base64_image}'
+        print(f"[SCAN-DEBUG] Starting ID scan with multi-model fallback")
+        
+        for model in models_to_try:
+            print(f"[SCAN-DEBUG] Testing model: {model}")
+            for attempt in range(max_retries_per_model):
+                try:
+                    print(f"[SCAN-DEBUG] Model {model} - Attempt {attempt + 1}...")
+                    response = requests.post(
+                        api_url,
+                        headers={
+                            'Authorization': f'Bearer {api_key}',
+                            'Content-Type': 'application/json',
+                            'HTTP-Referer': 'https://github.com/fizzbuzz38-cell/fizz',
+                            'X-Title': 'StudentApp'
+                        },
+                        json={
+                            'model': model,
+                            'messages': [
+                                {
+                                    'role': 'user',
+                                    'content': [
+                                        {'type': 'text', 'text': prompt},
+                                        {
+                                            'type': 'image_url',
+                                            'image_url': {
+                                                'url': f'data:image/jpeg;base64,{base64_image}'
+                                            }
                                         }
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    timeout=60
-                )
-                
-                if response.status_code == 200:
-                    print(f"[SCAN-DEBUG] Success on attempt {attempt + 1}!")
-                    break
-                
-                if response.status_code == 429:
-                    print(f"[SCAN-DEBUG] Rate limited (429) on attempt {attempt + 1}.")
-                    if attempt < max_retries - 1:
-                        sleep_time = retry_delay * (2 ** attempt)
-                        print(f"[SCAN-DEBUG] Waiting {sleep_time}s before next attempt...")
-                        time.sleep(sleep_time)
+                                    ]
+                                }
+                            ]
+                        },
+                        timeout=60
+                    )
+                    
+                    if response.status_code == 200:
+                        final_response = response
+                        print(f"[SCAN-DEBUG] Success with model {model}!")
+                        break
+                    
+                    last_error = f"Model {model} returned {response.status_code}: {response.text[:100]}"
+                    if response.status_code == 429:
+                        time.sleep(2) # Petit délai si rate limit
                         continue
-                
-                # If non-retryable error
-                print(f"[SCAN-DEBUG] Request failed with status: {response.status_code}")
-                print(f"[SCAN-DEBUG] Error details: {response.text[:200]}")
+                    else:
+                        break # Si erreur 500 ou autre, on change de modèle
+                        
+                except Exception as e:
+                    print(f"[SCAN-DEBUG] Exception with {model}: {str(e)}")
+                    last_error = str(e)
+                    break
+            
+            if final_response:
                 break
-                
-            except Exception as e:
-                print(f"[SCAN-DEBUG] Exception on attempt {attempt + 1}: {str(e)}")
-                if attempt == max_retries - 1:
-                    return JsonResponse({'success': False, 'message': f'Erreur de connexion: {str(e)}'}, status=500)
-                time.sleep(1)
         
-        if not response or response.status_code != 200:
-            status_code = response.status_code if response else 500
-            msg = "Rate limit atteint (trop de requêtes). Réessayez dans 1 minute." if status_code == 429 else f"Erreur API: {status_code}"
+        if not final_response:
             return JsonResponse({
                 'success': False,
-                'message': msg
-            }, status=status_code if status_code != 200 else 500)
+                'message': "Les services d'IA gratuits sont saturés. Réessayez dans un instant.",
+                'debug': last_error
+            }, status=503)
+            
+        response = final_response
         
         # Parse response
         result = response.json()
