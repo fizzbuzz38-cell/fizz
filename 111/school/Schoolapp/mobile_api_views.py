@@ -407,37 +407,64 @@ JSON attendu :
         print(f"[SCAN-DEBUG] API Key present: {bool(api_key)}, length: {len(api_key)}")
         print(f"[SCAN-DEBUG] Image size: {len(base64_image)} base64 chars")
         
-        response = requests.post(
-            api_url,
-            headers={
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json',
-                'HTTP-Referer': 'https://github.com/fizzbuzz38-cell/fizz',
-                'X-Title': 'StudentApp'
-            },
-            json={
-                'model': model,
-                'messages': [
-                    {
-                        'role': 'user',
-                        'content': [
-                            {'type': 'text', 'text': prompt},
-                            {
-                                'type': 'image_url',
-                                'image_url': {
-                                    'url': f'data:image/jpeg;base64,{base64_image}'
-                                }
-                            }
-                        ]
-                    }
-                ]
-            },
-            timeout=60
-        )
+        import time
+        max_retries = 3
+        retry_delays = [5, 10, 15]  # seconds to wait between retries
         
-        print(f"[SCAN-DEBUG] OpenRouter response status: {response.status_code}")
-        print(f"[SCAN-DEBUG] OpenRouter response headers: {dict(response.headers)}")
-        print(f"[SCAN-DEBUG] OpenRouter response body (first 500 chars): {response.text[:500]}")
+        request_payload = {
+            'model': model,
+            'messages': [
+                {
+                    'role': 'user',
+                    'content': [
+                        {'type': 'text', 'text': prompt},
+                        {
+                            'type': 'image_url',
+                            'image_url': {
+                                'url': f'data:image/jpeg;base64,{base64_image}'
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+        
+        request_headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://github.com/fizzbuzz38-cell/fizz',
+            'X-Title': 'StudentApp'
+        }
+        
+        response = None
+        for attempt in range(max_retries):
+            print(f"[SCAN-DEBUG] Attempt {attempt + 1}/{max_retries}")
+            
+            response = requests.post(
+                api_url,
+                headers=request_headers,
+                json=request_payload,
+                timeout=60
+            )
+            
+            print(f"[SCAN-DEBUG] Attempt {attempt + 1} - Status: {response.status_code}")
+            
+            if response.status_code == 200:
+                print(f"[SCAN-DEBUG] Success on attempt {attempt + 1}!")
+                break
+            elif response.status_code == 429:
+                if attempt < max_retries - 1:
+                    delay = retry_delays[attempt]
+                    print(f"[SCAN-DEBUG] Rate limited (429). Waiting {delay}s before retry...")
+                    time.sleep(delay)
+                else:
+                    print(f"[SCAN-DEBUG] Rate limited on all {max_retries} attempts")
+            else:
+                print(f"[SCAN-DEBUG] Non-retryable error: {response.status_code}")
+                break
+        
+        print(f"[SCAN-DEBUG] Final response status: {response.status_code}")
+        print(f"[SCAN-DEBUG] Final response body (first 500 chars): {response.text[:500]}")
         
         if response.status_code != 200:
             return JsonResponse({
@@ -448,6 +475,7 @@ JSON attendu :
                     'status': response.status_code,
                     'response_body': response.text[:500],
                     'api_key_length': len(api_key),
+                    'retries': max_retries,
                 }
             }, status=500)
         
