@@ -383,9 +383,10 @@ def api_mobile_scan_id_card(request):
         api_url = 'https://openrouter.ai/api/v1/chat/completions'
         
         # Models to try in order of preference (using robust free tier models)
+        # Note: Must use Multimodal models (support images)
         models_to_try = [
-            'google/gemma-3-27b-it:free',        # Primary: User confirmed this works
-            'google/gemini-2.0-pro-exp-02-05:free', # Backup
+            'google/gemini-2.0-flash-lite-preview-02-05:free', # Reliable Multimodal
+            'google/gemini-2.0-flash-exp:free', # Backup Multimodal
         ]
         
         prompt = '''Analyse cette carte d'identité biométrique algérienne.
