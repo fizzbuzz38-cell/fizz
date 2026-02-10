@@ -382,10 +382,8 @@ def api_mobile_scan_id_card(request):
         # Call OpenRouter API
         api_url = 'https://openrouter.ai/api/v1/chat/completions'
         
-        # Confirmed working model (tested locally 2026-02-10)
-        # google/gemini-2.0-flash-001 works reliably (paid via API key)
-        # google/gemma-3-27b-it:free is free but often rate-limited
-        model = 'google/gemini-2.0-flash-001'
+        # Test avec Google Gemma 3 27B (multimodal, free)
+        model = 'google/gemma-3-27b-it:free'
         
         prompt = '''Analyse cette carte d'identité biométrique algérienne.
 Extrais UNIQUEMENT les champs en ARABE suivants au format JSON.
@@ -394,98 +392,57 @@ Extrais UNIQUEMENT les champs en ARABE suivants au format JSON.
    IMPORTANT : Ne PRENDS PAS "سلطة الاصدار" ou le texte "سيدي امحمد" qui est en haut à droite. C'est l'autorité, pas le nom.
    Le "Nom" est juste à côté du mot "اللقب".
 2. Prénom (الاسم) : Cherche le mot "الاسم" (situé sous le Nom) et prends le prénom à côté.
-3. Lieu de Naissance (مكان الميلاد) : Cherche le mot "مكان الميلاد" tout en bas de la carte et prends le lieu écrit à côté.
+3. Date de Naissance (تاريخ الميلاد) : Cherche le mot "تاريخ الميلاد" et prends la date au format YYYY-MM-DD.
+4. Lieu de Naissance (مكان الميلاد) : Cherche le mot "مكان الميلاد" tout en bas de la carte et prends le lieu écrit à côté.
+5. NIN (رقم التعريف الوطني) : Le long numéro de 18 chiffres situé en haut de la carte.
 
 JSON attendu :
 {
+  "nin": "...",
   "nom": "...", 
   "prenom": "...",
+  "dateNaissance": "YYYY-MM-DD",
   "lieuNaissance": "..."
 }
 '''
         
-        print(f"[SCAN-DEBUG] Using model: {model}")
-        print(f"[SCAN-DEBUG] API Key present: {bool(api_key)}, length: {len(api_key)}")
-        print(f"[SCAN-DEBUG] Image size: {len(base64_image)} base64 chars")
-        
-        import time
-        max_retries = 3
-        retry_delays = [5, 10, 15]  # seconds to wait between retries
-        
-        request_payload = {
-            'model': model,
-            'messages': [
-                {
-                    'role': 'user',
-                    'content': [
-                        {'type': 'text', 'text': prompt},
-                        {
-                            'type': 'image_url',
-                            'image_url': {
-                                'url': f'data:image/jpeg;base64,{base64_image}'
+        response = requests.post(
+            api_url,
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json',
+                'HTTP-Referer': 'https://github.com/fizzbuzz38-cell/fizz',
+                'X-Title': 'StudentApp'
+            },
+            json={
+                'model': model,
+                'messages': [
+                    {
+                        'role': 'user',
+                        'content': [
+                            {'type': 'text', 'text': prompt},
+                            {
+                                'type': 'image_url',
+                                'image_url': {
+                                    'url': f'data:image/jpeg;base64,{base64_image}'
+                                }
                             }
-                        }
-                    ]
-                }
-            ]
-        }
-        
-        request_headers = {
-            'Authorization': f'Bearer {api_key}',
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://github.com/fizzbuzz38-cell/fizz',
-            'X-Title': 'StudentApp'
-        }
-        
-        response = None
-        for attempt in range(max_retries):
-            print(f"[SCAN-DEBUG] Attempt {attempt + 1}/{max_retries}")
-            
-            response = requests.post(
-                api_url,
-                headers=request_headers,
-                json=request_payload,
-                timeout=60
-            )
-            
-            print(f"[SCAN-DEBUG] Attempt {attempt + 1} - Status: {response.status_code}")
-            
-            if response.status_code == 200:
-                print(f"[SCAN-DEBUG] Success on attempt {attempt + 1}!")
-                break
-            elif response.status_code == 429:
-                if attempt < max_retries - 1:
-                    delay = retry_delays[attempt]
-                    print(f"[SCAN-DEBUG] Rate limited (429). Waiting {delay}s before retry...")
-                    time.sleep(delay)
-                else:
-                    print(f"[SCAN-DEBUG] Rate limited on all {max_retries} attempts")
-            else:
-                print(f"[SCAN-DEBUG] Non-retryable error: {response.status_code}")
-                break
-        
-        print(f"[SCAN-DEBUG] Final response status: {response.status_code}")
-        print(f"[SCAN-DEBUG] Final response body (first 500 chars): {response.text[:500]}")
+                        ]
+                    }
+                ]
+            },
+            timeout=60
+        )
         
         if response.status_code != 200:
             return JsonResponse({
                 'success': False,
-                'message': f'Erreur API: {response.status_code}',
-                'debug': {
-                    'model': model,
-                    'status': response.status_code,
-                    'response_body': response.text[:500],
-                    'api_key_length': len(api_key),
-                    'retries': max_retries,
-                }
+                'message': f'Erreur API: {response.status_code}'
             }, status=500)
         
         # Parse response
         result = response.json()
-        print(f"[SCAN-DEBUG] Parsed result keys: {list(result.keys())}")
-        
         content = result['choices'][0]['message']['content']
-        print(f"[SCAN-DEBUG] AI response content: {content[:300]}")
         
         # Extract JSON from response (might be wrapped in markdown)
         json_content = content.strip()
@@ -497,11 +454,8 @@ JSON attendu :
             json_content = json_content[:-3]
         json_content = json_content.strip()
         
-        print(f"[SCAN-DEBUG] Cleaned JSON: {json_content[:300]}")
-        
         # Parse extracted data
         extracted = json.loads(json_content)
-        print(f"[SCAN-DEBUG] Extracted data: {extracted}")
         
         return JsonResponse({
             'success': True,
