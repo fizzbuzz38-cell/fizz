@@ -389,6 +389,27 @@ def api_mobile_scan_id_card(request):
             'google/gemma-3-27b-it:free',
         ]
         
+        prompt = '''Analyse cette carte d'identité biométrique algérienne.
+Extrais UNIQUEMENT les champs en ARABE suivants au format JSON.
+
+1. Nom (اللقب) : Cherche le mot "اللقب" situé AU MILIEU à droite (sous le long numéro composite).
+   IMPORTANT : Ne PRENDS PAS "سلطة الاصدار" ou le texte "سيدي امحمد" qui est en haut à droite. C'est l'autorité, pas le nom.
+   Le "Nom" est juste à côté du mot "اللقب".
+2. Prénom (الاسم) : Cherche le mot "الاسم" (situé sous le Nom) et prends le prénom à côté.
+3. Date de Naissance (تاريخ الميلاد) : Cherche le mot "تاريخ الميلاد" et prends la date au format YYYY-MM-DD.
+4. Lieu de Naissance (مكان الميلاد) : Cherche le mot "مكان الميلاد" tout en bas de la carte et prends le lieu écrit à côté.
+5. NIN (رقم التعريف الوطني) : Le long numéro de 18 chiffres situé en haut de la carte.
+
+JSON attendu :
+{
+  "nin": "...",
+  "nom": "...", 
+  "prenom": "...",
+  "dateNaissance": "YYYY-MM-DD",
+  "lieuNaissance": "..."
+}
+'''
+        
         import time
         max_retries_per_model = 2
         
