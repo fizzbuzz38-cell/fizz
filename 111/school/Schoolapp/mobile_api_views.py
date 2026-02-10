@@ -387,6 +387,7 @@ def api_mobile_scan_id_card(request):
             'google/gemini-2.0-flash-lite-preview-02-05:free',
             'google/gemini-2.0-flash-exp:free',
             'google/gemma-3-27b-it:free',
+            'nvidia/nemotron-nano-12b-v2-vl:free',
         ]
         
         prompt = '''Analyse cette carte d'identité biométrique algérienne.
