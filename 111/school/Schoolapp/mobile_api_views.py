@@ -384,19 +384,18 @@ def api_mobile_scan_id_card(request):
         
         # Models to try in order of preference (using robust free tier models)
         # Note: Must use Multimodal models (support images)
-        models_to_try = [
-            'google/gemini-2.0-flash-lite-preview-02-05:free', # Reliable Multimodal
-            'google/gemini-2.0-flash-exp:free', # Backup Multimodal
-        ]
+        model = 'google/gemma-3-27b-it:free'
         
         prompt = '''Analyse cette carte d'identité biométrique algérienne.
-Extrais UNIQUEMENT les champs en ARABE suivants au format JSON strict.
+Extrais UNIQUEMENT les champs en ARABE suivants au format JSON.
 
-1. Nom (اللقب) : Situé à droite, sous le numéro d'identité.
-2. Prénom (الاسم) : Situé sous le Nom.
-3. Lieu de Naissance (مكان الميلاد) : Situé en bas à droite.
+1. Nom (اللقب) : Cherche le mot "اللقب" situé AU MILIEU à droite (sous le long numéro composite).
+   IMPORTANT : Ne PRENDS PAS "سلطة الاصدار" ou le texte "سيدي امحمد" qui est en haut à droite. C'est l'autorité, pas le nom.
+   Le "Nom" est juste à côté du mot "اللقب".
+2. Prénom (الاسم) : Cherche le mot "الاسم" (situé sous le Nom) et prends le prénom à côté.
+3. Lieu de Naissance (مكان الميلاد) : Cherche le mot "مكان الميلاد" tout en bas de la carte et prends le lieu écrit à côté.
 
-JSON attendu (sans markdown, sans texte avant/après) :
+JSON attendu :
 {
   "nom": "...", 
   "prenom": "...",
@@ -404,73 +403,60 @@ JSON attendu (sans markdown, sans texte avant/après) :
 }
 '''
         
-        last_error = None
-        current_response = None
-        import time
+        print(f"[SCAN-DEBUG] Using model: {model}")
+        print(f"[SCAN-DEBUG] API Key present: {bool(api_key)}, length: {len(api_key)}")
+        print(f"[SCAN-DEBUG] Image size: {len(base64_image)} base64 chars")
         
-        for model in models_to_try:
-            try:
-                response = requests.post(
-                    api_url,
-                    headers={
-                        'Authorization': f'Bearer {api_key}',
-                        'Content-Type': 'application/json',
-                        'HTTP-Referer': 'https://github.com/fizzbuzz38-cell/fizz',
-                        'X-Title': 'StudentApp'
-                    },
-                    json={
-                        'model': model,
-                        'messages': [
+        response = requests.post(
+            api_url,
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json',
+                'HTTP-Referer': 'https://github.com/fizzbuzz38-cell/fizz',
+                'X-Title': 'StudentApp'
+            },
+            json={
+                'model': model,
+                'messages': [
+                    {
+                        'role': 'user',
+                        'content': [
+                            {'type': 'text', 'text': prompt},
                             {
-                                'role': 'user',
-                                'content': [
-                                    {'type': 'text', 'text': prompt},
-                                    {
-                                        'type': 'image_url',
-                                        'image_url': {
-                                            'url': f'data:image/jpeg;base64,{base64_image}'
-                                        }
-                                    }
-                                ]
+                                'type': 'image_url',
+                                'image_url': {
+                                    'url': f'data:image/jpeg;base64,{base64_image}'
+                                }
                             }
                         ]
-                    },
-                    timeout=60
-                )
-                
-                if response.status_code == 200:
-                    current_response = response
-                    break # Success!
-                elif response.status_code == 429:
-                    last_error = f"Rate limit (429) on {model}"
-                    time.sleep(2) # Wait a bit before trying next model
-                    continue # Try next model
-                else:
-                    last_error = f"Error {response.status_code} on {model}: {response.text}"
-                    continue
-                    
-            except Exception as e:
-                last_error = str(e)
-                continue
+                    }
+                ]
+            },
+            timeout=60
+        )
         
-        # If no successful response after trying all models
-        if not current_response:
-             # Fallback mock data if everything fails (for demo purposes)
-             # return JsonResponse({'success': False, 'message': f'IA indisponible: {last_error}'}, status=500)
-             # Use the last error code or 500
-             return JsonResponse({'success': False, 'message': f'Toutes les tentatives ont échoué. Derniere erreur: {last_error}'}, status=500)
-             
-        response = current_response
+        print(f"[SCAN-DEBUG] OpenRouter response status: {response.status_code}")
+        print(f"[SCAN-DEBUG] OpenRouter response headers: {dict(response.headers)}")
+        print(f"[SCAN-DEBUG] OpenRouter response body (first 500 chars): {response.text[:500]}")
         
         if response.status_code != 200:
             return JsonResponse({
                 'success': False,
-                'message': f'Erreur API: {response.status_code}'
+                'message': f'Erreur API: {response.status_code}',
+                'debug': {
+                    'model': model,
+                    'status': response.status_code,
+                    'response_body': response.text[:500],
+                    'api_key_length': len(api_key),
+                }
             }, status=500)
         
         # Parse response
         result = response.json()
+        print(f"[SCAN-DEBUG] Parsed result keys: {list(result.keys())}")
+        
         content = result['choices'][0]['message']['content']
+        print(f"[SCAN-DEBUG] AI response content: {content[:300]}")
         
         # Extract JSON from response (might be wrapped in markdown)
         json_content = content.strip()
@@ -482,8 +468,11 @@ JSON attendu (sans markdown, sans texte avant/après) :
             json_content = json_content[:-3]
         json_content = json_content.strip()
         
+        print(f"[SCAN-DEBUG] Cleaned JSON: {json_content[:300]}")
+        
         # Parse extracted data
         extracted = json.loads(json_content)
+        print(f"[SCAN-DEBUG] Extracted data: {extracted}")
         
         return JsonResponse({
             'success': True,
