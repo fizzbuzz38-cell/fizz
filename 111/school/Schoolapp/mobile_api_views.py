@@ -383,7 +383,7 @@ def api_mobile_scan_id_card(request):
         api_url = 'https://openrouter.ai/api/v1/chat/completions'
         
         # Test avec Google Gemma 3 27B (multimodal, free)
-        model = 'google/gemma-3-27b-it:free'
+        model = 'gemini-2.0-flash-001'
         
         prompt = '''Analyse cette carte d'identité biométrique algérienne.
 Extrais UNIQUEMENT les champs en ARABE suivants au format JSON.
