@@ -384,9 +384,8 @@ def api_mobile_scan_id_card(request):
         
         # Models to try in order of preference (using robust free tier models)
         models_to_try = [
-            'google/gemini-2.0-pro-exp-02-05:free',
-            'google/gemini-2.0-flash-lite-preview-02-05:free',
-            'google/gemini-2.0-flash-exp:free',
+            'google/gemma-3-27b-it:free',        # Primary: User confirmed this works
+            'google/gemini-2.0-pro-exp-02-05:free', # Backup
         ]
         
         prompt = '''Analyse cette carte d'identité biométrique algérienne.
