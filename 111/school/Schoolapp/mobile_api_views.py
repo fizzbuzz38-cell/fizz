@@ -406,39 +406,75 @@ JSON attendu :
 }
 '''
         
-        response = requests.post(
-            api_url,
-            headers={
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json',
-                'HTTP-Referer': 'https://github.com/fizzbuzz38-cell/fizz',
-                'X-Title': 'StudentApp'
-            },
-            json={
-                'model': model,
-                'messages': [
-                    {
-                        'role': 'user',
-                        'content': [
-                            {'type': 'text', 'text': prompt},
+        import time
+        max_retries = 5
+        retry_delay = 2  # base delay in seconds
+        
+        print(f"[SCAN-DEBUG] Starting ID scan with model: {model}")
+        print(f"[SCAN-DEBUG] Image size: {len(base64_image)} chars")
+        
+        response = None
+        for attempt in range(max_retries):
+            try:
+                print(f"[SCAN-DEBUG] Attempt {attempt + 1}/{max_retries}...")
+                response = requests.post(
+                    api_url,
+                    headers={
+                        'Authorization': f'Bearer {api_key}',
+                        'Content-Type': 'application/json',
+                        'HTTP-Referer': 'https://github.com/fizzbuzz38-cell/fizz',
+                        'X-Title': 'StudentApp'
+                    },
+                    json={
+                        'model': model,
+                        'messages': [
                             {
-                                'type': 'image_url',
-                                'image_url': {
-                                    'url': f'data:image/jpeg;base64,{base64_image}'
-                                }
+                                'role': 'user',
+                                'content': [
+                                    {'type': 'text', 'text': prompt},
+                                    {
+                                        'type': 'image_url',
+                                        'image_url': {
+                                            'url': f'data:image/jpeg;base64,{base64_image}'
+                                        }
+                                    }
+                                ]
                             }
                         ]
-                    }
-                ]
-            },
-            timeout=60
-        )
+                    },
+                    timeout=60
+                )
+                
+                if response.status_code == 200:
+                    print(f"[SCAN-DEBUG] Success on attempt {attempt + 1}!")
+                    break
+                
+                if response.status_code == 429:
+                    print(f"[SCAN-DEBUG] Rate limited (429) on attempt {attempt + 1}.")
+                    if attempt < max_retries - 1:
+                        sleep_time = retry_delay * (2 ** attempt)
+                        print(f"[SCAN-DEBUG] Waiting {sleep_time}s before next attempt...")
+                        time.sleep(sleep_time)
+                        continue
+                
+                # If non-retryable error
+                print(f"[SCAN-DEBUG] Request failed with status: {response.status_code}")
+                print(f"[SCAN-DEBUG] Error details: {response.text[:200]}")
+                break
+                
+            except Exception as e:
+                print(f"[SCAN-DEBUG] Exception on attempt {attempt + 1}: {str(e)}")
+                if attempt == max_retries - 1:
+                    return JsonResponse({'success': False, 'message': f'Erreur de connexion: {str(e)}'}, status=500)
+                time.sleep(1)
         
-        if response.status_code != 200:
+        if not response or response.status_code != 200:
+            status_code = response.status_code if response else 500
+            msg = "Rate limit atteint (trop de requêtes). Réessayez dans 1 minute." if status_code == 429 else f"Erreur API: {status_code}"
             return JsonResponse({
                 'success': False,
-                'message': f'Erreur API: {response.status_code}'
-            }, status=500)
+                'message': msg
+            }, status=status_code if status_code != 200 else 500)
         
         # Parse response
         result = response.json()
