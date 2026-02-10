@@ -382,9 +382,10 @@ def api_mobile_scan_id_card(request):
         # Call OpenRouter API
         api_url = 'https://openrouter.ai/api/v1/chat/completions'
         
-        # Models to try in order of preference (using robust free tier models)
-        # Note: Must use Multimodal models (support images)
-        model = 'google/gemma-3-27b-it:free'
+        # Confirmed working model (tested locally 2026-02-10)
+        # google/gemini-2.0-flash-001 works reliably (paid via API key)
+        # google/gemma-3-27b-it:free is free but often rate-limited
+        model = 'google/gemini-2.0-flash-001'
         
         prompt = '''Analyse cette carte d'identité biométrique algérienne.
 Extrais UNIQUEMENT les champs en ARABE suivants au format JSON.
