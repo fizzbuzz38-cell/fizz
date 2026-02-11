@@ -298,6 +298,11 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': False,
         },
+        'Schoolapp.request_logging_middleware': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     },
     'root': {
         'handlers': ['console', 'file'],
