@@ -62,6 +62,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'Schoolapp.request_logging_middleware.RequestLoggingMiddleware', # <-- Added for debugging
     'Schoolapp.cors_middleware.CORSMiddleware',  # <-- AJOUTER CETTE LIGNE
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
