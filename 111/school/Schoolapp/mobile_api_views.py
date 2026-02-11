@@ -382,9 +382,12 @@ def api_mobile_scan_id_card(request):
         # Call OpenRouter API
         api_url = 'https://openrouter.ai/api/v1/chat/completions'
         
-        # Modèle unique demandé par l'utilisateur (confirmé fonctionnel)
+        # Liste des modèles gratuits à tester dans l'ordre de préférence
         models_to_try = [
-            'google/gemma-3-12b-it:free',
+            'google/gemini-2.0-flash-lite-preview-02-05:free',
+            'google/gemini-2.0-flash-exp:free',
+            'google/gemma-3-27b-it:free',
+            'nvidia/nemotron-nano-12b-v2-vl:free',
         ]
         
         prompt = '''Analyse cette carte d'identité biométrique algérienne.
