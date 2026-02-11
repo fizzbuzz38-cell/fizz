@@ -58,22 +58,37 @@ try:
 	wsgi_logger.info("[OK] Django WSGI application loaded successfully")
 	print('[OK] Django WSGI application loaded successfully', flush=True)
 	
-	# Warm up database connection pool on first worker initialization
-	try:
-		from django.db import connections
-		from django.db.utils import OperationalError
-		db_conn = connections['default']
-		wsgi_logger.info(f"Testing database connection to {db_conn.settings_dict['HOST']}...")
-		print(f"[WSGI] Testing database connection to {db_conn.settings_dict['HOST']}...", flush=True)
-		db_conn.cursor()
-		wsgi_logger.info("[OK] Database connection successful!")
-		print("[WSGI] [OK] Database connection successful!", flush=True)
-	except OperationalError as e:
-		wsgi_logger.error(f"[FAIL] Database connection failed: {e}")
-		print(f"[WSGI] [FAIL] Database connection failed: {e}", flush=True)
-	except Exception as e:
-		wsgi_logger.error(f"[FAIL] Unexpected error connecting to database: {e}")
-		print(f"[WSGI] [FAIL] Unexpected error connecting to database: {e}", flush=True)
+	# Warm up database connection pool in a background thread
+	# This prevents the application from hanging at startup if the DB is unreachable
+	def _warmup_db():
+		try:
+			from django.db import connections
+			from django.db.utils import OperationalError
+			import time
+			
+			# Wait a moment for server to fully initialize
+			time.sleep(2)
+			
+			db_conn = connections['default']
+			wsgi_logger.info(f"Testing database connection to {db_conn.settings_dict['HOST']}...")
+			print(f"[WSGI] Testing database connection to {db_conn.settings_dict['HOST']}...", flush=True)
+			
+			# Set a strict timeout for this check
+			db_conn.cursor()
+			
+			wsgi_logger.info("[OK] Database connection successful!")
+			print("[WSGI] [OK] Database connection successful!", flush=True)
+		except OperationalError as e:
+			wsgi_logger.error(f"[FAIL] Database connection failed: {e}")
+			print(f"[WSGI] [FAIL] Database connection failed: {e}", flush=True)
+		except Exception as e:
+			wsgi_logger.error(f"[FAIL] Unexpected error connecting to database: {e}")
+			print(f"[WSGI] [FAIL] Unexpected error connecting to database: {e}", flush=True)
+
+	import threading
+	t = threading.Thread(target=_warmup_db)
+	t.daemon = True
+	t.start()
 except Exception as e:
 	wsgi_logger.error(f"[FAIL] Failed to load Django: {e}", exc_info=True)
 	print(f'[FAIL] Failed to load Django: {e}', flush=True)
