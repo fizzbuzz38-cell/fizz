@@ -115,7 +115,7 @@ DATABASES = {
         'PASSWORD': os.environ.get('MYSQLPASSWORD', 'ZPduFjruVJRTYXwPGVaudOiyChOZWGnT' if ON_RAILWAY else ''),
         'HOST': os.environ.get('MYSQLHOST', 'mysql.railway.internal' if ON_RAILWAY else 'localhost'),
         'PORT': int(os.environ.get('MYSQLPORT', '3306')),
-        'CONN_MAX_AGE': 600,  # Connection pooling
+        'CONN_MAX_AGE': 60,  # Reduced from 600 to 60 to prevent stale connections on Railway
         'OPTIONS': {
             'charset': 'utf8mb4',
             'connect_timeout': 10,
