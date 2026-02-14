@@ -10247,4 +10247,50 @@ def mobile_student_app(request):
     GET /m/student/
     """
     return render(request, 'mobile_student_app.html')
+def admin_pending_enrollments(request):
+    """
+    Web page for administrators to see and approve student enrollments.
+    """
+    # Quick admin check helper
+    if not _is_admin_request(request):
+        from django.shortcuts import redirect
+        return redirect('home')
 
+    pending_inscriptions = Inscription.objects.filter(statut='en_attente').select_related('etudiant', 'formation', 'groupe').order_by('-date_inscription')
+    
+    from django.shortcuts import render
+    return render(request, 'admin_pending_enrollments.html', {
+        'pending_inscriptions': pending_inscriptions,
+        'title': 'Pending Enrollments Approval'
+    })
+
+@csrf_exempt
+def admin_approve_enrollment(request):
+    """
+    Approve or Deny a pending enrollment request.
+    """
+    if not _is_admin_request(request):
+        return JsonResponse({'success': False, 'error': 'Non autorisé'}, status=403)
+        
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST requis'}, status=405)
+        
+    try:
+        inscription_id = request.POST.get('inscription_id')
+        action = request.POST.get('action') # 'approve' or 'deny'
+        
+        inscription = get_object_or_404(Inscription, id=inscription_id)
+        
+        if action == 'approve':
+            inscription.statut = 'inscrit'
+            inscription.date_inscription = timezone.now()
+            inscription.save()
+            return JsonResponse({'success': True, 'message': 'Inscription approuvée !'})
+        elif action == 'deny':
+            inscription.delete()
+            return JsonResponse({'success': True, 'message': 'Inscription refusée et supprimée.'})
+        else:
+            return JsonResponse({'success': False, 'error': 'Action invalide'}, status=400)
+            
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)

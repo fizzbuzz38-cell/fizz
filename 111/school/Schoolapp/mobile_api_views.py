@@ -522,6 +522,90 @@ JSON attendu :
             'message': f'Erreur: {str(e)}'
         }, status=500)
 
+# New APIs for Flutter v2 (Mobile)
+@csrf_exempt
+def api_mobile_v2_student_signup(request):
+    """
+    Register a new student from the Flutter app.
+    POST /api/mobile/v2/student/signup/
+    Body: { "nom": "...", "prenom": "...", "email": "...", "telephone": "..." }
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'POST requis'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        nom = data.get('nom')
+        prenom = data.get('prenom')
+        email = data.get('email', '')
+        telephone = data.get('telephone', '')
+        
+        if not nom or not prenom:
+            return JsonResponse({'success': False, 'message': 'Nom et Prénom requis'}, status=400)
+            
+        student = Etudiant.objects.create(
+            nom=nom,
+            prenom=prenom,
+            email=email,
+            telephone=telephone,
+            date_inscription=datetime.now().date(),
+            statut='actif'
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Compte créé avec succès',
+            'student_id': student.id
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+@csrf_exempt
+def api_mobile_v2_student_enroll(request):
+    """
+    Request enrollment in a formation. Status is 'en_attente' until approved.
+    POST /api/mobile/v2/student/enroll/
+    Body: { "student_id": 123, "formation_id": 456 }
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'POST requis'}, status=405)
+        
+    try:
+        data = json.loads(request.body)
+        student_id = data.get('student_id')
+        formation_id = data.get('formation_id')
+        
+        if not student_id or not formation_id:
+            return JsonResponse({'success': False, 'message': 'IDs requis'}, status=400)
+            
+        student = get_object_or_404(Etudiant, id=student_id)
+        formation = get_object_or_404(Formation, id=formation_id)
+        
+        # Check if already enrolled (any status)
+        existing = Inscription.objects.filter(etudiant=student, formation=formation).first()
+        if existing:
+            return JsonResponse({
+                'success': False, 
+                'message': f'Déjà inscrit (Statut: {existing.statut})'
+            }, status=400)
+            
+        # Create pending enrollment
+        inscription = Inscription.objects.create(
+            etudiant=student,
+            formation=formation,
+            statut='en_attente', # Pending approval
+            date_inscription=datetime.now(),
+            prix_total=formation.prix_etudiant or 0.0,
+            ecole='Genie School App'
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Demande d\'inscription envoyée. En attente d\'approbation.'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
 # Aliases for urls.py compatibility
 api_mobile_student_formations_list = api_mobile_student_formations
 api_mobile_student_payments_list = api_mobile_student_payments

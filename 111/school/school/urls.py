@@ -183,6 +183,12 @@ urlpatterns = [
   path('api/mobile/v2/student/payments/', mobile_api_views.api_mobile_student_payments, name='api_mobile_v2_student_payments'),
   path('api/mobile/v2/student/profile/update/', mobile_api_views.api_mobile_student_profile_update, name='api_mobile_v2_student_profile_update'),
   path('api/mobile/v2/scan-id-card/', mobile_api_views.api_mobile_scan_id_card, name='api_mobile_v2_scan_id_card'),
+  path('api/mobile/v2/student/signup/', mobile_api_views.api_mobile_v2_student_signup, name='api_mobile_v2_student_signup'),
+  path('api/mobile/v2/student/enroll/', mobile_api_views.api_mobile_v2_student_enroll, name='api_mobile_v2_student_enroll'),
+
+  # Admin Approval for Mobile Enrollments
+  path('admin/pending-enrollments/', views.admin_pending_enrollments, name='admin_pending_enrollments'),
+  path('admin/approve-enrollment/', views.admin_approve_enrollment, name='admin_approve_enrollment'),
 
 
 ]

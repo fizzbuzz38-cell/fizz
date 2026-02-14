@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Approbation des inscriptions | GénieSchool{% endblock %}
+
+{% block content %}
+<div class="p-6">
+    <div class="flex items-center justify-between mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-800">Inscriptions en attente</h1>
+            <p class="text-gray-500 mt-1">Approuvez ou refusez les demandes d'inscription reçues via l'application mobile.</p>
+        </div>
+        <div class="bg-amber-100 text-amber-700 px-4 py-2 rounded-lg border border-amber-200 flex items-center">
+            <span class="material-icons mr-2">info</span>
+            <span>{{ pending_inscriptions|length }} demande(s) en attente</span>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="bg-gray-50 border-bottom border-gray-100">
+                    <th class="px-6 py-4 text-sm font-semibold text-gray-600 uppercase tracking-wider">Étudiant</th>
+                    <th class="px-6 py-4 text-sm font-semibold text-gray-600 uppercase tracking-wider">Formation</th>
+                    <th class="px-6 py-4 text-sm font-semibold text-gray-600 uppercase tracking-wider">Date Demande</th>
+                    <th class="px-6 py-4 text-sm font-semibold text-gray-600 uppercase tracking-wider text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ins in pending_inscriptions %}
+                <tr class="border-b border-gray-50 hover:bg-gray-50/50 transition-colors" id="row-{{ ins.id }}">
+                    <td class="px-6 py-4">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold mr-3">
+                                {{ ins.etudiant.prenom|slice:":1" }}{{ ins.etudiant.nom|slice:":1" }}
+                            </div>
+                            <div>
+                                <div class="font-semibold text-gray-800">{{ ins.etudiant.prenom }} {{ ins.etudiant.nom }}</div>
+                                <div class="text-xs text-gray-500">ID: #{{ ins.etudiant.id }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-sm font-medium border border-blue-100">
+                            {{ ins.formation.nom }}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-600">
+                        {{ ins.date_inscription|date:"d M Y, H:i" }}
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <div class="flex items-center justify-end gap-2">
+                            <button onclick="handleEnrollment({{ ins.id }}, 'approve')" 
+                                    class="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md text-sm font-medium">
+                                <span class="material-icons text-sm mr-1">check</span> Approuver
+                            </button>
+                            <button onclick="handleEnrollment({{ ins.id }}, 'deny')" 
+                                    class="flex items-center px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-all border border-red-100 text-sm font-medium">
+                                <span class="material-icons text-sm mr-1">close</span> Refuser
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="px-6 py-20 text-center">
+                        <div class="flex flex-col items-center">
+                            <span class="material-icons text-6xl text-gray-200 mb-4">task_alt</span>
+                            <div class="text-xl font-medium text-gray-400">Aucune inscription en attente</div>
+                            <p class="text-gray-400 text-sm mt-1">Toutes les demandes ont été traitées.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function handleEnrollment(id, action) {
+    if (!confirm(action === 'approve' ? 'Voulez-vous approuver cette inscription ?' : 'Voulez-vous refuser cette inscription ?')) return;
+
+    const row = document.getElementById(`row-${id}`);
+    row.style.opacity = '0.5';
+    row.style.pointerEvents = 'none';
+
+    fetch('/admin/approve-enrollment/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: `inscription_id=${id}&action=${action}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            row.style.transition = 'all 0.4s ease';
+            row.style.transform = 'translateX(20px)';
+            row.style.opacity = '0';
+            setTimeout(() => row.remove(), 400);
+            
+            // Show toast or snackbar if available in base.html
+            alert(data.message);
+        } else {
+            alert('Erreur: ' + data.error);
+            row.style.opacity = '1';
+            row.style.pointerEvents = 'auto';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Erreur système');
+        row.style.opacity = '1';
+        row.style.pointerEvents = 'auto';
+    });
+}
+</script>
+{% endblock %}

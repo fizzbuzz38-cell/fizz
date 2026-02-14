@@ -798,6 +798,13 @@
                 <span>Liste des inscriptions</span>
               </a>
             </li>
+            <li>
+              <a href="{% url 'admin_pending_enrollments' %}"
+                class="{% if request.path == '/admin/pending-enrollments/' %}active-link{% endif %}">
+                <span class="material-icons mr-3 text-sm" style="vertical-align:middle;">pending_actions</span>
+                <span>Inscriptions en attente</span>
+              </a>
+            </li>
           </ul>
         </li>
         <li class="mb-4">
