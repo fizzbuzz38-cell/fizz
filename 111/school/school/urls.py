@@ -186,9 +186,9 @@ urlpatterns = [
   path('api/mobile/v2/student/signup/', mobile_api_views.api_mobile_v2_student_signup, name='api_mobile_v2_student_signup'),
   path('api/mobile/v2/student/enroll/', mobile_api_views.api_mobile_v2_student_enroll, name='api_mobile_v2_student_enroll'),
 
-  # Admin Approval for Mobile Enrollments
-  path('admin/pending-enrollments/', views.admin_pending_enrollments, name='admin_pending_enrollments'),
-  path('admin/approve-enrollment/', views.admin_approve_enrollment, name='admin_approve_enrollment'),
+  # Public Approval for Mobile Enrollments (Bypass Django Admin login)
+  path('public/pending-enrollments/', views.admin_pending_enrollments, name='admin_pending_enrollments'),
+  path('public/approve-enrollment/', views.admin_approve_enrollment, name='admin_approve_enrollment'),
 
 
 ]
