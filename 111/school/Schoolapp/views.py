@@ -10251,11 +10251,6 @@ def admin_pending_enrollments(request):
     """
     Web page for administrators to see and approve student enrollments.
     """
-    # Quick admin check helper
-    if not _is_admin_request(request):
-        from django.shortcuts import redirect
-        return redirect('home')
-
     pending_inscriptions = Inscription.objects.filter(statut='en_attente').select_related('etudiant', 'formation', 'groupe').order_by('-date_inscription')
     
     from django.shortcuts import render
@@ -10269,8 +10264,6 @@ def admin_approve_enrollment(request):
     """
     Approve or Deny a pending enrollment request.
     """
-    if not _is_admin_request(request):
-        return JsonResponse({'success': False, 'error': 'Non autorisé'}, status=403)
         
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'POST requis'}, status=405)
